@@ -24,10 +24,7 @@ pub fn parse_html(html: &str) -> Result<SemanticData, Box<dyn std::error::Error 
     // Extract title
     let title_selector = Selector::parse("title")
         .map_err(|e| Box::<dyn std::error::Error + Send + Sync>::from(e.to_string()))?;
-    let title = document
-        .select(&title_selector)
-        .next()
-        .map(|t| t.text().collect::<String>());
+    let title = document.select(&title_selector).next().map(|t| t.text().collect::<String>());
 
     // Extract JSON-LD
     let json_ld = extract_json_ld(&document)?;
@@ -35,11 +32,7 @@ pub fn parse_html(html: &str) -> Result<SemanticData, Box<dyn std::error::Error 
     // Extract microdata (simplified)
     let microdata = extract_microdata(&document)?;
 
-    Ok(SemanticData {
-        title,
-        microdata,
-        json_ld,
-    })
+    Ok(SemanticData { title, microdata, json_ld })
 }
 
 /// Extract JSON-LD scripts
@@ -79,16 +72,10 @@ fn extract_microdata(
         for prop in element.select(&prop_selector) {
             let prop_name = prop.value().attr("itemprop").unwrap_or("").to_string();
             let prop_value = prop.text().collect::<String>();
-            properties
-                .entry(prop_name)
-                .or_insert(Vec::new())
-                .push(prop_value);
+            properties.entry(prop_name).or_insert(Vec::new()).push(prop_value);
         }
 
-        items.push(MicrodataItem {
-            item_type,
-            properties,
-        });
+        items.push(MicrodataItem { item_type, properties });
     }
 
     Ok(items)

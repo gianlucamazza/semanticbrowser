@@ -18,9 +18,7 @@ impl Default for KnowledgeGraph {
 impl KnowledgeGraph {
     /// Create a new in-memory KG
     pub fn new() -> Self {
-        Self {
-            store: Store::new().unwrap(),
-        }
+        Self { store: Store::new().unwrap() }
     }
 
     /// Create with persistence
@@ -82,10 +80,7 @@ impl KnowledgeGraph {
         let results = self
             .query(&query)
             .map_err(|e| -> Box<dyn std::error::Error> { format!("Query error: {}", e).into() })?;
-        tracing::debug!(
-            "Found {} subClassOf relations for transitive closure",
-            results.len()
-        );
+        tracing::debug!("Found {} subClassOf relations for transitive closure", results.len());
 
         // In a real implementation, we would:
         // 1. Build a graph of the subClassOf relations
@@ -94,10 +89,7 @@ impl KnowledgeGraph {
 
         // For now, just log that we would do this
         if !results.is_empty() {
-            tracing::info!(
-                "Would infer transitive closure over {} relations",
-                results.len()
-            );
+            tracing::info!("Would infer transitive closure over {} relations", results.len());
         }
 
         Ok(())
@@ -108,10 +100,7 @@ impl KnowledgeGraph {
         let mut results = Vec::new();
         for triple in self.store.iter() {
             let triple = triple.unwrap();
-            results.push(format!(
-                "{} {} {}",
-                triple.subject, triple.predicate, triple.object
-            ));
+            results.push(format!("{} {} {}", triple.subject, triple.predicate, triple.object));
         }
         results
     }
@@ -137,10 +126,8 @@ impl KnowledgeGraph {
             oxigraph::sparql::QueryResults::Graph(triples) => {
                 for triple in triples {
                     let triple = triple?;
-                    results.push(format!(
-                        "{} {} {}",
-                        triple.subject, triple.predicate, triple.object
-                    ));
+                    results
+                        .push(format!("{} {} {}", triple.subject, triple.predicate, triple.object));
                 }
             }
         }
@@ -165,8 +152,7 @@ mod tests {
     #[test]
     fn test_kg_insert_and_list() {
         let mut kg = KnowledgeGraph::new();
-        kg.insert("http://ex.org/s", "http://ex.org/p", "http://ex.org/o")
-            .unwrap();
+        kg.insert("http://ex.org/s", "http://ex.org/p", "http://ex.org/o").unwrap();
         let triples = kg.list_triples();
         assert_eq!(triples.len(), 1);
         assert!(triples[0].contains("http://ex.org/s"));
@@ -175,8 +161,7 @@ mod tests {
     #[test]
     fn test_kg_query() {
         let mut kg = KnowledgeGraph::new();
-        kg.insert("http://ex.org/s", "http://ex.org/p", "http://ex.org/o")
-            .unwrap();
+        kg.insert("http://ex.org/s", "http://ex.org/p", "http://ex.org/o").unwrap();
         let results = kg.query("SELECT * WHERE { ?s ?p ?o }").unwrap();
         assert!(!results.is_empty());
     }

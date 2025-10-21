@@ -58,7 +58,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --clean)
             print_info "Cleaning up Docker resources..."
-            docker-compose -f docker-compose.test.yml down -v
+            docker-compose -f docker/docker-compose.test.yml down -v
             print_success "Cleanup complete"
             exit 0
             ;;
@@ -87,7 +87,7 @@ print_header "Semantic Browser - Docker Test Suite"
 
 # Build test images
 print_info "Building test images..."
-docker-compose -f docker-compose.test.yml build || {
+docker-compose -f docker/docker-compose.test.yml build || {
     print_error "Failed to build test images"
     exit 1
 }
@@ -96,7 +96,7 @@ print_success "Test images built"
 # Run linting
 if [ "$RUN_LINT" = true ]; then
     print_header "Running Code Quality Checks"
-    docker-compose -f docker-compose.test.yml run --rm lint_runner || {
+    docker-compose -f docker/docker-compose.test.yml run --rm lint_runner || {
         print_error "Linting failed"
         exit 1
     }
@@ -106,7 +106,7 @@ fi
 # Run unit tests
 if [ "$RUN_UNIT" = true ]; then
     print_header "Running Unit Tests"
-    docker-compose -f docker-compose.test.yml run --rm test_runner || {
+    docker-compose -f docker/docker-compose.test.yml run --rm test_runner || {
         print_error "Unit tests failed"
         exit 1
     }
@@ -119,13 +119,13 @@ if [ "$RUN_INTEGRATION" = true ]; then
 
     # Start test server
     print_info "Starting test server..."
-    docker-compose -f docker-compose.test.yml up -d test_server
+    docker-compose -f docker/docker-compose.test.yml up -d test_server
 
     # Wait for server to be healthy
     print_info "Waiting for test server to be ready..."
     timeout=30
     while [ $timeout -gt 0 ]; do
-        if docker-compose -f docker-compose.test.yml ps test_server | grep -q "healthy"; then
+        if docker-compose -f docker/docker-compose.test.yml ps test_server | grep -q "healthy"; then
             print_success "Test server is ready"
             break
         fi
@@ -135,28 +135,28 @@ if [ "$RUN_INTEGRATION" = true ]; then
 
     if [ $timeout -eq 0 ]; then
         print_error "Test server failed to start"
-        docker-compose -f docker-compose.test.yml logs test_server
+        docker-compose -f docker/docker-compose.test.yml logs test_server
         docker-compose -f docker-compose.test.yml down
         exit 1
     fi
 
     # Run integration tests
-    docker-compose -f docker-compose.test.yml run --rm integration_test || {
+    docker-compose -f docker/docker-compose.test.yml run --rm integration_test || {
         print_error "Integration tests failed"
-        docker-compose -f docker-compose.test.yml logs test_server
-        docker-compose -f docker-compose.test.yml down
+        docker-compose -f docker/docker-compose.test.yml logs test_server
+        docker-compose -f docker/docker-compose.test.yml down
         exit 1
     }
     print_success "Integration tests passed"
 
     # Cleanup
-    docker-compose -f docker-compose.test.yml down
+    docker-compose -f docker/docker-compose.test.yml down
 fi
 
 # Run benchmarks (optional)
 if [ "$RUN_BENCH" = true ]; then
     print_header "Running Benchmarks"
-    docker-compose -f docker-compose.test.yml run --rm benchmark || {
+    docker-compose -f docker/docker-compose.test.yml run --rm benchmark || {
         print_error "Benchmarks failed"
         exit 1
     }

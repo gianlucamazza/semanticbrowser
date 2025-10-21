@@ -1,6 +1,8 @@
 # Rust
 /target
+.cargo/
 Cargo.lock
+*.rs.bk
 
 # IDE
 .vscode/
@@ -14,6 +16,7 @@ Cargo.lock
 .env
 .env.local
 .env.*.local
+config/.env
 
 # Data
 data/kg/*
@@ -37,3 +40,5 @@ coverage/
 # Temporary
 *.tmp
 *.bak
+*.cache
+.cache/

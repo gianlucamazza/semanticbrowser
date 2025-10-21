@@ -85,7 +85,7 @@ case $BUILD_TYPE in
             $CACHE_ARG \
             $PLATFORM \
             -t semantic-browser:latest \
-            -f Dockerfile \
+            -f docker/Dockerfile \
             . || {
             print_error "Production build failed"
             exit 1
@@ -99,7 +99,7 @@ case $BUILD_TYPE in
 
     development)
         print_info "Building development image..."
-        docker-compose build || {
+        docker-compose -f docker/docker-compose.yml build || {
             print_error "Development build failed"
             exit 1
         }
@@ -108,7 +108,7 @@ case $BUILD_TYPE in
 
     test)
         print_info "Building test images..."
-        docker-compose -f docker-compose.test.yml build $CACHE_ARG || {
+        docker-compose -f docker/docker-compose.test.yml build $CACHE_ARG || {
             print_error "Test images build failed"
             exit 1
         }
@@ -133,5 +133,5 @@ echo ""
 echo "Available images:"
 docker images | grep semantic-browser || true
 echo ""
-print_info "To run: ./scripts/docker-up.sh"
-print_info "To test: ./scripts/docker-test.sh"
+print_info "To run: ./docker/scripts/docker-up.sh"
+print_info "To test: ./docker/scripts/docker-test.sh"

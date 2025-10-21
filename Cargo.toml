@@ -1,5 +1,5 @@
 [package]
-name = "rusthtml5"
+name = "semanticbrowser"
 version = "0.1.0"
 edition = "2021"
 

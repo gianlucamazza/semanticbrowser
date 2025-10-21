@@ -48,22 +48,22 @@ cargo bench
 
 ```bash
 # Complete test suite
-./scripts/docker-test.sh
+./docker/scripts/docker-test.sh
 
 # Quick unit tests only
-./scripts/docker-test.sh --unit-only
+./docker/scripts/docker-test.sh --unit-only
 
 # Integration tests with server
-./scripts/docker-test.sh --integration-only
+./docker/scripts/docker-test.sh --integration-only
 
 # Linting checks
-./scripts/docker-test.sh --lint-only
+./docker/scripts/docker-test.sh --lint-only
 
 # Include benchmarks
-./scripts/docker-test.sh --with-bench
+./docker/scripts/docker-test.sh --with-bench
 
 # Clean up after tests
-./scripts/docker-test.sh --clean
+./docker/scripts/docker-test.sh --clean
 ```
 
 ## Test Coverage
@@ -272,7 +272,7 @@ jobs:
 
 ```bash
 # Simulate full CI pipeline
-./scripts/docker-test.sh
+./docker/scripts/docker-test.sh
 
 # Individual steps
 docker-compose -f docker-compose.test.yml run --rm lint_runner
@@ -347,7 +347,7 @@ cargo bench
 cargo bench bench_parse_html
 
 # Docker benchmark
-./scripts/docker-test.sh --with-bench
+./docker/scripts/docker-test.sh --with-bench
 
 # View results
 cat target/criterion/*/report/index.html
@@ -374,7 +374,7 @@ RUST_LOG=debug cargo test -- --nocapture
 RUST_LOG=semantic_browser::api=trace cargo test
 
 # Docker with logs
-RUST_LOG=debug ./scripts/docker-test.sh
+RUST_LOG=debug ./docker/scripts/docker-test.sh
 ```
 
 ### Debug Specific Test

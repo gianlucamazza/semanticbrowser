@@ -49,25 +49,25 @@ check: ## Run cargo check
 
 # Docker
 docker-build: ## Build Docker image
-	./scripts/docker-build.sh
+	./docker/scripts/docker-build.sh
 
 docker-up: ## Start Docker containers
-	./scripts/docker-up.sh -d
+	./docker/scripts/docker-up.sh -d
 
 docker-down: ## Stop Docker containers
-	./scripts/docker-up.sh --stop
+	./docker/scripts/docker-up.sh --stop
 
 docker-logs: ## Show Docker logs
-	./scripts/docker-up.sh --logs
+	./docker/scripts/docker-up.sh --logs
 
 docker-test: ## Run tests in Docker
-	./scripts/docker-test.sh
+	./docker/scripts/docker-test.sh
 
 docker-test-unit: ## Run unit tests in Docker
-	./scripts/docker-test.sh --unit-only
+	./docker/scripts/docker-test.sh --unit-only
 
 docker-test-integration: ## Run integration tests in Docker
-	./scripts/docker-test.sh --integration-only
+	./docker/scripts/docker-test.sh --integration-only
 
 # Documentation
 docs: ## Generate documentation
@@ -78,8 +78,8 @@ clean: ## Clean build artifacts
 	cargo clean
 
 clean-docker: ## Clean Docker containers and images
-	docker-compose down --rmi all --volumes --remove-orphans
-	docker-compose -f docker-compose.test.yml down --rmi all --volumes --remove-orphans
+	docker-compose -f docker/docker-compose.yml down --rmi all --volumes --remove-orphans
+	docker-compose -f docker/docker-compose.test.yml down --rmi all --volumes --remove-orphans
 
 clean-all: clean clean-docker ## Clean everything
 
@@ -96,7 +96,7 @@ ci: fmt-check lint test ## Run CI checks locally
 
 # Examples
 examples: ## Make example scripts executable
-	chmod +x examples/*.sh
+	chmod +x docs/examples/*.sh
 
 # Setup
 setup: examples ## Initial project setup

@@ -1,0 +1,20 @@
+# Rust code formatting configuration
+# See: https://rust-lang.github.io/rustfmt/
+
+# Basic formatting
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Auto"
+
+# Imports
+reorder_imports = true
+
+# Margins
+fn_call_width = 100
+struct_lit_width = 100
+array_width = 100
+chain_width = 100
+
+# Spaces
+remove_nested_parens = true

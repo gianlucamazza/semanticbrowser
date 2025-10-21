@@ -19,10 +19,7 @@ pub async fn browse_with_browser_use(
     // Extract title
     let title_selector = scraper::Selector::parse("title")
         .map_err(|e| Box::<dyn std::error::Error + Send + Sync>::from(e.to_string()))?;
-    let title = document
-        .select(&title_selector)
-        .next()
-        .map(|t| t.text().collect::<String>());
+    let title = document.select(&title_selector).next().map(|t| t.text().collect::<String>());
 
     // Extract JSON-LD
     let json_ld_selector = scraper::Selector::parse("script[type=\"application/ld+json\"]")
@@ -48,15 +45,9 @@ pub async fn browse_with_browser_use(
         for prop in element.select(&itemprop_selector) {
             let prop_name = prop.value().attr("itemprop").unwrap_or("").to_string();
             let prop_value = prop.text().collect::<String>();
-            properties
-                .entry(prop_name)
-                .or_insert(Vec::new())
-                .push(prop_value);
+            properties.entry(prop_name).or_insert(Vec::new()).push(prop_value);
         }
-        microdata.push(crate::parser::MicrodataItem {
-            item_type,
-            properties,
-        });
+        microdata.push(crate::parser::MicrodataItem { item_type, properties });
     }
 
     // Return semantic summary
@@ -67,11 +58,7 @@ pub async fn browse_with_browser_use(
     result.push_str(&format!("JSON-LD objects: {}\n", json_ld.len()));
     result.push_str(&format!("Microdata items: {}\n", microdata.len()));
     for item in &microdata {
-        result.push_str(&format!(
-            "- {}: {}\n",
-            item.item_type,
-            item.properties.len()
-        ));
+        result.push_str(&format!("- {}: {}\n", item.item_type, item.properties.len()));
     }
     Ok(result)
 }
@@ -167,12 +154,8 @@ print('Mock workflow result for input: {}')
         graph_def, input, input
     );
 
-    let output = Command::new("python3")
-        .arg("-c")
-        .arg(&python_code)
-        .stdout(Stdio::piped())
-        .output()
-        .await?;
+    let output =
+        Command::new("python3").arg("-c").arg(&python_code).stdout(Stdio::piped()).output().await?;
 
     if output.status.success() {
         Ok(String::from_utf8(output.stdout)?)

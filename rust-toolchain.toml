@@ -1,0 +1,9 @@
+# Rust toolchain configuration
+# This file specifies the exact Rust version and components to use
+# See: https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file
+
+[toolchain]
+channel = "stable"  # Use stable Rust version
+components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
+targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
+profile = "default"

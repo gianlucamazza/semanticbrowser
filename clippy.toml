@@ -1,0 +1,51 @@
+# Clippy linting configuration
+# See: https://doc.rust-lang.org/clippy/lint_configuration.html
+
+# Allow list for specific lints
+allow = []
+
+# Deny list for specific lints
+deny = []
+
+# Warn list for specific lints
+warn = []
+
+# Complexity limits
+cognitive-complexity-threshold = 25
+too-many-lines-threshold = 300
+
+# Style preferences
+enum-variant-name-threshold = 10
+large-error-threshold = 128
+literal-repetition-threshold = 3
+single-char-binding-names-threshold = 5
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+vec-capacity-threshold = 1024
+
+# Performance settings
+array-size-threshold = 512_000
+string-capacity-threshold = 1024
+
+# Documentation
+check-private-items = false
+
+# Cargo specific
+cargo = { ignore-publish = false }
+
+# Additional lint configurations
+msrv = "1.70.0"  # Minimum Supported Rust Version
+
+# Custom lint levels
+[[disallowed-methods]]
+path = "std::env::temp_dir"
+reason = "Use a more specific temporary directory"
+
+[[disallowed-methods]]
+path = "std::env::var"
+reason = "Use config structs instead of environment variables directly"
+
+# Allow certain patterns
+[[allowed-duplicate-crates]]
+name = "serde"
+reason = "Common dependency used across workspace"

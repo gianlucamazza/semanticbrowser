@@ -62,10 +62,7 @@ pub struct BrowseResponse {
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize KG with persistence if KG_PERSIST_PATH is set
     let kg = if let Ok(persist_path) = std::env::var("KG_PERSIST_PATH") {
-        tracing::info!(
-            "Initializing Knowledge Graph with persistence at: {}",
-            persist_path
-        );
+        tracing::info!("Initializing Knowledge Graph with persistence at: {}", persist_path);
         crate::kg::KnowledgeGraph::with_persistence(std::path::Path::new(&persist_path))?
     } else {
         tracing::info!("Initializing in-memory Knowledge Graph");
@@ -85,11 +82,7 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(addr).await?;
     tracing::info!("Server running on http://{}", addr);
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await?;
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
     Ok(())
 }
 
@@ -153,10 +146,7 @@ async fn parse_html(
     // Check auth
     if !check_auth(&headers) {
         crate::security::log_action("parse_html", "Unauthorized access");
-        return Json(ParseResponse {
-            title: None,
-            entities: vec!["Unauthorized".to_string()],
-        });
+        return Json(ParseResponse { title: None, entities: vec!["Unauthorized".to_string()] });
     }
 
     // Check rate limit - extract real IP
@@ -175,10 +165,7 @@ async fn parse_html(
     // Validate input
     if let Err(e) = crate::security::validate_html_input(&req.html) {
         crate::security::log_action("parse_html", &format!("Validation failed: {}", e));
-        return Json(ParseResponse {
-            title: None,
-            entities: vec![e.to_string()],
-        });
+        return Json(ParseResponse { title: None, entities: vec![e.to_string()] });
     }
 
     // Use parser module
@@ -194,17 +181,11 @@ async fn parse_html(
                 "parse_html",
                 &format!("Parsed {} entities", entities.len()),
             );
-            Json(ParseResponse {
-                title: data.title,
-                entities,
-            })
+            Json(ParseResponse { title: data.title, entities })
         }
         Err(e) => {
             crate::security::log_action("parse_html", &format!("Parse error: {}", e));
-            Json(ParseResponse {
-                title: None,
-                entities: vec![],
-            })
+            Json(ParseResponse { title: None, entities: vec![] })
         }
     }
 }
@@ -220,9 +201,7 @@ async fn query_kg(
     // Check auth
     if !check_auth(&headers) {
         crate::security::log_action("query_kg", "Unauthorized access");
-        return Json(QueryResponse {
-            results: vec!["Unauthorized".to_string()],
-        });
+        return Json(QueryResponse { results: vec!["Unauthorized".to_string()] });
     }
 
     // Check rate limit - extract real IP
@@ -231,18 +210,14 @@ async fn query_kg(
         let mut rate_limits = state.rate_limits.lock().await;
         if !check_rate_limit(&mut rate_limits, &ip) {
             crate::security::log_action("query_kg", &format!("Rate limit exceeded for {}", ip));
-            return Json(QueryResponse {
-                results: vec!["Rate limit exceeded".to_string()],
-            });
+            return Json(QueryResponse { results: vec!["Rate limit exceeded".to_string()] });
         }
     }
 
     // Validate query
     if let Err(e) = crate::security::validate_sparql_query(&req.query) {
         crate::security::log_action("query_kg", &format!("Validation failed: {}", e));
-        return Json(QueryResponse {
-            results: vec![e.to_string()],
-        });
+        return Json(QueryResponse { results: vec![e.to_string()] });
     }
 
     // Determine if this is a query or update operation
@@ -255,15 +230,11 @@ async fn query_kg(
         match kg.update(&req.query) {
             Ok(()) => {
                 crate::security::log_action("query_kg", "Update executed successfully");
-                Json(QueryResponse {
-                    results: vec!["Update successful".to_string()],
-                })
+                Json(QueryResponse { results: vec!["Update successful".to_string()] })
             }
             Err(e) => {
                 crate::security::log_action("query_kg", &format!("Update error: {}", e));
-                Json(QueryResponse {
-                    results: vec![format!("Update error: {}", e)],
-                })
+                Json(QueryResponse { results: vec![format!("Update error: {}", e)] })
             }
         }
     } else {
@@ -279,9 +250,7 @@ async fn query_kg(
             }
             Err(e) => {
                 crate::security::log_action("query_kg", &format!("Query error: {}", e));
-                Json(QueryResponse {
-                    results: vec![format!("Query error: {}", e)],
-                })
+                Json(QueryResponse { results: vec![format!("Query error: {}", e)] })
             }
         }
     }
@@ -298,9 +267,7 @@ async fn browse_url(
     // Check auth
     if !check_auth(&headers) {
         crate::security::log_action("browse_url", "Unauthorized access");
-        return Json(BrowseResponse {
-            data: "Unauthorized".to_string(),
-        });
+        return Json(BrowseResponse { data: "Unauthorized".to_string() });
     }
 
     // Check rate limit - extract real IP
@@ -309,18 +276,14 @@ async fn browse_url(
         let mut rate_limits = state.rate_limits.lock().await;
         if !check_rate_limit(&mut rate_limits, &ip) {
             crate::security::log_action("browse_url", &format!("Rate limit exceeded for {}", ip));
-            return Json(BrowseResponse {
-                data: "Rate limit exceeded".to_string(),
-            });
+            return Json(BrowseResponse { data: "Rate limit exceeded".to_string() });
         }
     }
 
     // Basic URL validation
     if !req.url.starts_with("http") {
         crate::security::log_action("browse_url", "Invalid URL");
-        return Json(BrowseResponse {
-            data: "Invalid URL".to_string(),
-        });
+        return Json(BrowseResponse { data: "Invalid URL".to_string() });
     }
 
     // Try PyO3-based browser-use first, then fall back to HTTP
@@ -342,9 +305,7 @@ async fn browse_url(
         }
         Err(e) => {
             crate::security::log_action("browse_url", &format!("Browse error: {}", e));
-            Json(BrowseResponse {
-                data: format!("Error browsing: {}", e),
-            })
+            Json(BrowseResponse { data: format!("Error browsing: {}", e) })
         }
     }
 }

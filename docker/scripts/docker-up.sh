@@ -43,23 +43,23 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --logs)
-            docker-compose logs -f semantic_browser
+            docker-compose -f docker/docker-compose.yml logs -f semantic_browser
             exit 0
             ;;
         --stop)
             print_info "Stopping Semantic Browser..."
-            docker-compose down
+            docker-compose -f docker/docker-compose.yml down
             print_success "Stopped"
             exit 0
             ;;
         --restart)
             print_info "Restarting Semantic Browser..."
-            docker-compose restart
+            docker-compose -f docker/docker-compose.yml restart
             print_success "Restarted"
             exit 0
             ;;
         --status)
-            docker-compose ps
+            docker-compose -f docker/docker-compose.yml ps
             exit 0
             ;;
         --help)
@@ -94,13 +94,13 @@ if [ -f .env ]; then
     export $(cat .env | grep -v '^#' | xargs)
 else
     print_info "No .env file found, using defaults"
-    print_info "Copy .env.example to .env to customize"
+    print_info "Copy config/.env.example to .env to customize"
 fi
 
 # Build if requested
 if [ "$BUILD" = true ]; then
     print_info "Building images..."
-    docker-compose build || {
+    docker-compose -f docker/docker-compose.yml build || {
         print_error "Build failed"
         exit 1
     }
@@ -111,7 +111,7 @@ fi
 print_info "Starting Semantic Browser..."
 
 if [ "$MODE" = "background" ]; then
-    docker-compose up -d || {
+    docker-compose -f docker/docker-compose.yml up -d || {
         print_error "Failed to start service"
         exit 1
     }
@@ -120,7 +120,7 @@ if [ "$MODE" = "background" ]; then
     print_info "Waiting for service to be healthy..."
     timeout=60
     while [ $timeout -gt 0 ]; do
-        if docker-compose ps semantic_browser | grep -q "healthy"; then
+        if docker-compose -f docker/docker-compose.yml ps semantic_browser | grep -q "healthy"; then
             print_success "Service is healthy and running"
             break
         fi
@@ -132,7 +132,7 @@ if [ "$MODE" = "background" ]; then
 
     if [ $timeout -eq 0 ]; then
         print_error "Service failed to become healthy"
-        docker-compose logs semantic_browser
+        docker-compose -f docker/docker-compose.yml logs semantic_browser
         exit 1
     fi
 
@@ -147,14 +147,14 @@ if [ "$MODE" = "background" ]; then
     echo "  Status:       $0 --status"
     echo ""
     print_info "Try the examples:"
-    echo "  ./examples/parse_html.sh"
-    echo "  ./examples/query_kg.sh"
-    echo "  ./examples/browse_url.sh"
+    echo "  ./docs/examples/parse_html.sh"
+    echo "  ./docs/examples/query_kg.sh"
+    echo "  ./docs/examples/browse_url.sh"
 
 else
     print_info "Starting in foreground mode (Ctrl+C to stop)"
     echo ""
-    docker-compose up || {
+    docker-compose -f docker/docker-compose.yml up || {
         print_error "Failed to start service"
         exit 1
     }

@@ -40,18 +40,11 @@ impl NERModel {
 
         // For now, if file doesn't exist, fall back to regex
         if !std::path::Path::new(model_path).exists() {
-            tracing::warn!(
-                "NER model not found at {}, falling back to regex",
-                model_path
-            );
-            Ok(Self {
-                fallback_to_regex: true,
-            })
+            tracing::warn!("NER model not found at {}, falling back to regex", model_path);
+            Ok(Self { fallback_to_regex: true })
         } else {
             tracing::warn!("NER model found but tract-onnx integration not yet implemented, falling back to regex");
-            Ok(Self {
-                fallback_to_regex: true,
-            })
+            Ok(Self { fallback_to_regex: true })
         }
     }
 

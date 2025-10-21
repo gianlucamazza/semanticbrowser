@@ -36,14 +36,15 @@ Complete Docker setup for development, testing, and production deployment.
 
 ```
 .
-├── Dockerfile                  # Production/dev multi-stage build
-├── Dockerfile.test             # Test environment (multi-target)
-├── docker-compose.yml          # Production/dev orchestration
-├── docker-compose.test.yml     # Test orchestration
-├── .dockerignore               # Build optimization
-├── .env.example                # Environment template
+├── docker/Dockerfile            # Production/dev multi-stage build
+├── docker/Dockerfile.test       # Test environment (multi-target)
+├── docker/docker-compose.yml    # Production/dev orchestration
+├── docker/docker-compose.test.yml # Test orchestration
+├── docker/.dockerignore         # Build optimization
+├── config/
+│   └── .env.example           # Environment template
 │
-├── scripts/
+├── docker/scripts/
 │   ├── docker-build.sh         # Build automation
 │   ├── docker-up.sh            # Startup automation
 │   └── docker-test.sh          # Test automation
@@ -171,11 +172,11 @@ integration_test → test_server (waits for healthy)
 Optimized build with options:
 
 ```bash
-./scripts/docker-build.sh              # Production build
-./scripts/docker-build.sh --dev        # Development build
-./scripts/docker-build.sh --test       # Test images
-./scripts/docker-build.sh --no-cache   # Force rebuild
-./scripts/docker-build.sh --platform linux/amd64  # Cross-platform
+./docker/scripts/docker-build.sh              # Production build
+./docker/scripts/docker-build.sh --dev        # Development build
+./docker/scripts/docker-build.sh --test       # Test images
+./docker/scripts/docker-build.sh --no-cache   # Force rebuild
+./docker/scripts/docker-build.sh --platform linux/amd64  # Cross-platform
 ```
 
 Features:
@@ -190,12 +191,12 @@ Features:
 Service management:
 
 ```bash
-./scripts/docker-up.sh -d              # Start in background
-./scripts/docker-up.sh --build -d      # Build & start
-./scripts/docker-up.sh --logs          # View logs
-./scripts/docker-up.sh --stop          # Stop services
-./scripts/docker-up.sh --restart       # Restart
-./scripts/docker-up.sh --status        # Status check
+./docker/scripts/docker-up.sh -d              # Start in background
+./docker/scripts/docker-up.sh --build -d      # Build & start
+./docker/scripts/docker-up.sh --logs          # View logs
+./docker/scripts/docker-up.sh --stop          # Stop services
+./docker/scripts/docker-up.sh --restart       # Restart
+./docker/scripts/docker-up.sh --status        # Status check
 ```
 
 Features:
@@ -209,12 +210,12 @@ Features:
 Comprehensive testing:
 
 ```bash
-./scripts/docker-test.sh                    # All tests
-./scripts/docker-test.sh --unit-only        # Unit tests only
-./scripts/docker-test.sh --integration-only # Integration only
-./scripts/docker-test.sh --lint-only        # Linting only
-./scripts/docker-test.sh --with-bench       # Include benchmarks
-./scripts/docker-test.sh --clean            # Cleanup
+./docker/scripts/docker-test.sh                    # All tests
+./docker/scripts/docker-test.sh --unit-only        # Unit tests only
+./docker/scripts/docker-test.sh --integration-only # Integration only
+./docker/scripts/docker-test.sh --lint-only        # Linting only
+./docker/scripts/docker-test.sh --with-bench       # Include benchmarks
+./docker/scripts/docker-test.sh --clean            # Cleanup
 ```
 
 Features:
@@ -239,7 +240,7 @@ None (all have defaults)
 | `NER_MODEL_PATH` | NER model | Regex fallback |
 | `KG_INFERENCE_MODEL_PATH` | KG inference | Rule-based |
 
-See `.env.example` for complete list.
+See `config/.env.example` for complete list.
 
 ## Best Practices Implemented
 
@@ -282,12 +283,12 @@ See `.env.example` for complete list.
 
 1. Copy environment:
    ```bash
-   cp .env.example .env
+   cp config/.env.example .env
    ```
 
 2. Start services:
    ```bash
-   ./scripts/docker-up.sh -d
+   ./docker/scripts/docker-up.sh -d
    ```
 
 3. Watch logs:
@@ -297,7 +298,7 @@ See `.env.example` for complete list.
 
 4. Make changes and test:
    ```bash
-   ./scripts/docker-test.sh --unit-only
+   ./docker/scripts/docker-test.sh --unit-only
    ```
 
 ### CI/CD Workflow
@@ -331,13 +332,13 @@ See `.env.example` for complete list.
 
 1. Configure environment:
    ```bash
-   cp .env.example .env
+   cp config/.env.example .env
    # Edit .env with production values
    ```
 
 2. Build production image:
    ```bash
-   ./scripts/docker-build.sh
+   ./docker/scripts/docker-build.sh
    ```
 
 3. Start services:
@@ -364,7 +365,7 @@ See `.env.example` for complete list.
 
 **Solution**:
 ```bash
-./scripts/docker-build.sh --no-cache
+./docker/scripts/docker-build.sh --no-cache
 ```
 
 ### Runtime Issues
@@ -447,8 +448,100 @@ docker-compose -f docker-compose.test.yml logs test_server
    trivy image semantic-browser:latest
    ```
 
+## Troubleshooting and Build Cloud Setup
+
+### Docker Build Cloud Configuration
+
+For faster multi-architecture builds, configure Docker Build Cloud:
+
+#### Setup Build Cloud Builder
+
+```bash
+# Create cloud builder (requires Docker Pro/Premium)
+docker buildx create --driver cloud --name cloud-builder
+
+# Set as default
+docker buildx use cloud-builder
+
+# Verify
+docker buildx inspect
+```
+
+#### Build Multi-Architecture Images
+
+```bash
+# Build for multiple platforms
+docker buildx build --platform linux/amd64,linux/arm64 -t semantic-browser:latest .
+
+# Push to registry
+docker buildx build --platform linux/amd64,linux/arm64 -t semantic-browser:latest --push
+```
+
+### Common Build Issues and Solutions
+
+#### 1. BuildKit Casing Errors
+
+**Problem**: `FromAsCasing: 'as' and 'FROM' keywords' casing do not match`
+
+**Solution**: Ensure all Dockerfile keywords are UPPERCASE:
+```dockerfile
+# Correct
+FROM rust:1.84-slim AS builder
+
+# Incorrect
+FROM rust:1.84-slim as builder
+```
+
+#### 2. Credential Helper Issues
+
+**Problem**: `error getting credentials - err: exit status 1`
+
+**Solution** (macOS):
+```bash
+# Use osxkeychain helper
+echo '{"credsStore": "osxkeychain"}' > ~/.docker/config.json
+
+# Symlink helper to PATH
+sudo ln -sf /Applications/Docker.app/Contents/Resources/bin/docker-credential-osxkeychain /usr/local/bin/
+```
+
+#### 3. Missing Build Dependencies
+
+**Problem**: Compilation errors for Rust crates
+
+**Solution**: Add required packages to Dockerfile:
+```dockerfile
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    libclang-dev \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+#### 4. Compose Version Warnings
+
+**Problem**: `WARN[0000] the attribute 'version' is obsolete`
+
+**Solution**: Remove `version` field from docker-compose files (Compose v2+).
+
+#### 5. Slow Builds
+
+**Solutions**:
+- Enable BuildKit: `export DOCKER_BUILDKIT=1`
+- Use build cache mounts
+- Exclude unnecessary files with `.dockerignore`
+
+### Build Optimization Tips
+
+1. **Layer Caching**: Order Dockerfile instructions for optimal caching
+2. **Multi-Stage Builds**: Separate build and runtime stages
+3. **Dependency Caching**: Cache Cargo registry and target directories
+4. **Parallel Builds**: Use Build Cloud for concurrent builds
+
 ## Additional Resources
 
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
 - [Rust Docker Optimization](https://docs.docker.com/language/rust/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Docker Build Cloud](https://docs.docker.com/docker-hub/builds/)

@@ -1,0 +1,66 @@
+# Pre-commit hooks configuration for code quality
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  # Rust formatting and linting
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v16.0.6
+    hooks:
+      - id: clang-format
+        files: \.(rs)$
+        types: [file]
+
+  - repo: local
+    hooks:
+      # Rust formatting
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all -- --check
+        language: system
+        pass_filenames: false
+        files: \.(rs)$
+
+      # Rust linting
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --all-targets --all-features -- -D warnings
+        language: system
+        pass_filenames: false
+        files: \.(rs)$
+
+      # Run tests
+      - id: cargo-test
+        name: cargo test
+        entry: cargo test
+        language: system
+        pass_filenames: false
+        files: \.(rs)$
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.(md|yml|yaml)$
+      - id: end-of-file-fixer
+        exclude: \.(md|yml|yaml)$
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+
+  # Markdown linting
+  - repo: https://github.com/markdownlint/markdownlint
+    rev: v0.12.0
+    hooks:
+      - id: markdownlint
+        args: [--config, .markdownlint.json]
+        exclude: ^(CHANGELOG|CHANGELOG\.old)\.md$
+
+# Configuration for markdownlint
+.markdownlint.json:
+  default: true
+  MD013: false  # Line length
+  MD024: false  # Multiple headers with same content
+  MD033: false  # Inline HTML

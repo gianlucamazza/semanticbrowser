@@ -1,0 +1,29 @@
+# GitHub Sponsors configuration
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-funding-files
+
+# GitHub Sponsors username
+github: [your-github-username]  # Replace with actual GitHub username
+
+# Patreon username
+# patreon: your-patreon-username
+
+# Open Collective username
+# open_collective: your-open-collective-username
+
+# Ko-fi username
+# ko_fi: your-ko-fi-username
+
+# Tidelift (for commercial support)
+# tidelift: rust/crate-name  # Replace with actual crate name
+
+# Community Bridge (Linux Foundation)
+# community_bridge: your-project-name
+
+# Buy Me a Coffee username
+# buy_me_a_coffee: your-buy-me-a-coffee-username
+
+# Custom sponsorship URLs
+custom: [
+  "https://www.paypal.me/your-paypal-me-link",  # Replace with actual PayPal link
+  "https://www.buymeacoffee.com/your-username"  # Replace with actual Buy Me a Coffee link
+]

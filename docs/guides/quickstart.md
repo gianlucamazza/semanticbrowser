@@ -14,10 +14,10 @@ Choose one of:
 
 ```bash
 # Clone repository (if not already done)
-cd rusthtml5
+cd semanticbrowser
 
 # Copy environment template
-cp .env.example .env
+cp config/.env.example .env
 
 # (Optional) Edit .env for custom configuration
 # nano .env
@@ -27,11 +27,11 @@ cp .env.example .env
 
 ```bash
 # Build and start in one command
-./scripts/docker-up.sh --build -d
+./docker/scripts/docker-up.sh --build -d
 
 # Or separately:
-./scripts/docker-build.sh
-./scripts/docker-up.sh -d
+./docker/scripts/docker-build.sh
+./docker/scripts/docker-up.sh -d
 ```
 
 Wait for the health check (about 5 seconds):
@@ -56,7 +56,7 @@ Wait for the health check (about 5 seconds):
 
 ```bash
 # Follow logs
-./scripts/docker-up.sh --logs
+./docker/scripts/docker-up.sh --logs
 
 # Or with docker-compose
 docker-compose logs -f
@@ -65,7 +65,7 @@ docker-compose logs -f
 ### Step 5: Stop Server
 
 ```bash
-./scripts/docker-up.sh --stop
+./docker/scripts/docker-up.sh --stop
 ```
 
 That's it! 🎉
@@ -121,7 +121,7 @@ curl -X POST http://localhost:3000/query \
 
 ```bash
 # Using Docker (complete test suite)
-./scripts/docker-test.sh
+./docker/scripts/docker-test.sh
 
 # Or locally
 cargo test
@@ -131,13 +131,13 @@ cargo test
 
 ```bash
 # Unit tests only
-./scripts/docker-test.sh --unit-only
+./docker/scripts/docker-test.sh --unit-only
 
 # Integration tests only
-./scripts/docker-test.sh --integration-only
+./docker/scripts/docker-test.sh --integration-only
 
 # With benchmarks
-./scripts/docker-test.sh --with-bench
+./docker/scripts/docker-test.sh --with-bench
 ```
 
 ---
@@ -198,36 +198,29 @@ curl -X POST http://localhost:3000/browse \
 
 ## Configuration ⚙️
 
-### Environment Variables
+See **[Docker Setup Environment Variables](../guides/docker-setup.md#environment-variables)** for complete configuration options.
 
-Edit `.env` or set directly:
+### Basic Configuration
 
 ```bash
-# Logging
-RUST_LOG=debug
+# Copy template
+cp config/.env.example .env
 
-# Knowledge Graph persistence
-KG_PERSIST_PATH=./data/kg
-
-# ML Models (optional)
-NER_MODEL_PATH=./models/ner.onnx
-KG_INFERENCE_MODEL_PATH=./models/kg-inference.onnx
+# Edit as needed
+nano .env
 ```
 
 ### With Docker
 
 ```bash
-# Edit .env file
-nano .env
-
 # Restart to apply changes
-./scripts/docker-up.sh --restart
+./docker/scripts/docker-up.sh --restart
 ```
 
 ### With Cargo
 
 ```bash
-# Set environment and run
+# Set environment variables
 RUST_LOG=debug KG_PERSIST_PATH=./data/kg cargo run
 ```
 
@@ -239,23 +232,23 @@ RUST_LOG=debug KG_PERSIST_PATH=./data/kg cargo run
 
 ```bash
 # Status
-./scripts/docker-up.sh --status
+./docker/scripts/docker-up.sh --status
 docker-compose ps
 
 # Logs
-./scripts/docker-up.sh --logs
+./docker/scripts/docker-up.sh --logs
 docker-compose logs -f semantic_browser
 
 # Restart
-./scripts/docker-up.sh --restart
+./docker/scripts/docker-up.sh --restart
 docker-compose restart
 
 # Stop
-./scripts/docker-up.sh --stop
+./docker/scripts/docker-up.sh --stop
 docker-compose down
 
 # Rebuild
-./scripts/docker-build.sh
+./docker/scripts/docker-build.sh
 docker-compose build
 ```
 
@@ -302,12 +295,12 @@ lsof -ti:3000 | xargs kill -9
 
 ### Permission Denied
 
-**Problem**: `./scripts/docker-up.sh: Permission denied`
+**Problem**: `./docker/scripts/docker-up.sh: Permission denied`
 
 **Solution**:
 ```bash
-chmod +x scripts/*.sh
-chmod +x examples/*.sh
+chmod +x docker/scripts/*.sh
+chmod +x docs/examples/*.sh
 ```
 
 ### Docker Build Slow
@@ -320,7 +313,7 @@ chmod +x examples/*.sh
 export DOCKER_BUILDKIT=1
 
 # Use cached layers
-./scripts/docker-build.sh
+./docker/scripts/docker-build.sh
 ```
 
 ### BuildKit Casing Error
@@ -332,7 +325,7 @@ This has been fixed in the Dockerfiles. All keywords are now UPPERCASE.
 
 To verify:
 ```bash
-./scripts/verify-dockerfile-syntax.sh
+./docker/scripts/verify-dockerfile-syntax.sh
 ```
 
 ### Credentials Error
@@ -365,9 +358,9 @@ RUST_LOG=debug docker-compose up
 ## Next Steps 📚
 
 1. **Read Documentation**:
-   - [README.md](README.md) - Full documentation
-   - [DOCKER.md](DOCKER.md) - Docker details
-   - [TESTING.md](TESTING.md) - Testing guide
+   - [README.md](../README.md) - Full documentation
+   - [Docker Setup](docker-setup.md) - Docker details
+   - [Testing](testing.md) - Testing guide
 
 2. **Try Examples**:
    - [examples/](examples/) - API usage examples
@@ -378,7 +371,7 @@ RUST_LOG=debug docker-compose up
    - Knowledge Graph inference
 
 4. **Contribute**:
-   - Run tests: `./scripts/docker-test.sh`
+   - Run tests: `./docker/scripts/docker-test.sh`
    - Check linting: `cargo fmt && cargo clippy`
    - Submit PR
 
@@ -394,10 +387,10 @@ RUST_LOG=debug docker-compose up
 
 ### Docker Workflow
 ```bash
-cp .env.example .env
-./scripts/docker-up.sh -d
+cp config/.env.example .env
+./docker/scripts/docker-up.sh -d
 ./examples/parse_html.sh
-./scripts/docker-up.sh --stop
+./docker/scripts/docker-up.sh --stop
 ```
 
 ### Local Workflow

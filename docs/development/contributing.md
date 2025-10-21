@@ -15,8 +15,8 @@ Thank you for your interest in contributing to the Semantic Browser project! Thi
 1. **Clone and setup**:
    ```bash
    git clone <repository-url>
-   cd rusthtml5
-   cp .env.example .env
+   cd semanticbrowser
+    cp config/.env.example .env
    ```
 
 2. **Build and test**:
@@ -109,7 +109,7 @@ feat: add support for microdata extraction
 ## Project Structure
 
 ```
-rusthtml5/
+semanticbrowser/
 ├── src/                    # Source code
 │   ├── lib.rs             # Library entry point
 │   ├── main.rs            # Binary entry point
@@ -150,7 +150,7 @@ make docker-logs
 
 ## Getting Help
 
-- **Documentation**: Check `README.md`, `QUICKSTART.md`, `DOCKER.md`, `TESTING.md`
+- **Documentation**: Check `README.md`, `docs/guides/quickstart.md`, `docs/guides/docker-setup.md`, `docs/guides/testing.md`
 - **Issues**: Use GitHub Issues for bugs and feature requests
 - **Discussions**: Use GitHub Discussions for questions
 

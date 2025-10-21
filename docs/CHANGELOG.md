@@ -51,5 +51,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optimized build process
 - Resource limits configuration
 
-[Unreleased]: https://github.com/yourusername/rusthtml5/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/yourusername/rusthtml5/releases/tag/v0.1.0
+[Unreleased]: https://github.com/yourusername/semanticbrowser/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/yourusername/semanticbrowser/releases/tag/v0.1.0
