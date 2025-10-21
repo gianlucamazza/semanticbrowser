@@ -59,7 +59,7 @@ lazy_static = "1.5"
 seccompiler = { version = "0.5", optional = true }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.7"
 proptest = "1.5"
 test-case = "3.3"
 
