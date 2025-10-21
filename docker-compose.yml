@@ -1,0 +1,73 @@
+# Docker Compose file for Semantic Browser
+# Uses Compose Specification (no version required for Docker Compose v2+)
+
+services:
+  semantic_browser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: semantic-browser:latest
+    container_name: semantic-browser
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      # Logging configuration
+      RUST_LOG: ${RUST_LOG:-info}
+
+      # Knowledge Graph persistence
+      KG_PERSIST_PATH: ${KG_PERSIST_PATH:-/data/kg}
+
+      # ML Models (optional)
+      NER_MODEL_PATH: ${NER_MODEL_PATH:-}
+      KG_INFERENCE_MODEL_PATH: ${KG_INFERENCE_MODEL_PATH:-}
+
+      # PyO3 configuration
+      PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+
+    volumes:
+      # Persistent data for Knowledge Graph
+      - kg_data:/data/kg
+
+      # Optional: mount ML models
+      - ./models:/models:ro
+
+      # Optional: mount custom configuration
+      - ./config:/config:ro
+
+    networks:
+      - semantic_net
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    # Resource limits (optional, adjust based on needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  kg_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${KG_DATA_PATH:-./data/kg}
+
+networks:
+  semantic_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

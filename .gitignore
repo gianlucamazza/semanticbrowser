@@ -1,0 +1,39 @@
+# Rust
+/target
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data
+data/kg/*
+!data/kg/README.md
+models/*
+!models/README.md
+config/*
+!config/README.md
+
+# Test results
+test-results/
+coverage/
+*.profraw
+
+# Logs
+*.log
+
+# Docker
+.docker/
+
+# Temporary
+*.tmp
+*.bak

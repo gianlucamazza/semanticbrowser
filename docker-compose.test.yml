@@ -1,0 +1,144 @@
+# Docker Compose test environment for Semantic Browser
+# Uses Compose Specification (no version required for Docker Compose v2+)
+
+services:
+  # Test runner - executes all tests
+  test_runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    image: semantic-browser:test
+    container_name: semantic-browser-test
+    command: cargo test --verbose
+
+    environment:
+      RUST_LOG: debug
+      RUST_BACKTRACE: "1"
+      PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+
+    volumes:
+      # Mount source code for live testing
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./benches:/app/benches:ro
+
+      # Cache for faster builds
+      - cargo_cache:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - target_cache:/app/target
+
+    networks:
+      - test_net
+
+  # Lint runner - code quality checks
+  lint_runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: lint
+    image: semantic-browser:lint
+    container_name: semantic-browser-lint
+    command: sh -c "cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings"
+
+    environment:
+      RUST_LOG: info
+
+    volumes:
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./benches:/app/benches:ro
+      - cargo_cache:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - target_cache:/app/target
+
+    networks:
+      - test_net
+
+  # Integration test - with live server
+  integration_test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: integration
+    image: semantic-browser:integration
+    container_name: semantic-browser-integration
+
+    depends_on:
+      test_server:
+        condition: service_healthy
+
+    environment:
+      RUST_LOG: debug
+      TEST_SERVER_URL: http://test_server:3000
+
+    volumes:
+      - ./tests:/app/tests:ro
+      - ./examples:/app/examples:ro
+      - test_results:/app/test-results
+
+    networks:
+      - test_net
+
+    command: cargo test --test integration_test --verbose
+
+  # Test server - for integration testing
+  test_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: semantic-browser:latest
+    container_name: semantic-browser-test-server
+
+    environment:
+      RUST_LOG: debug
+      KG_PERSIST_PATH: /tmp/kg_test
+
+    ports:
+      - "3001:3000"
+
+    networks:
+      - test_net
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  # Benchmark runner
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: bench
+    image: semantic-browser:bench
+    container_name: semantic-browser-bench
+
+    command: cargo bench --verbose
+
+    environment:
+      RUST_LOG: info
+
+    volumes:
+      - ./src:/app/src:ro
+      - ./benches:/app/benches:ro
+      - cargo_cache:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - target_cache:/app/target
+      - benchmark_results:/app/target/criterion
+
+    networks:
+      - test_net
+
+volumes:
+  cargo_cache:
+  cargo_git:
+  target_cache:
+  test_results:
+  benchmark_results:
+
+networks:
+  test_net:
+    driver: bridge

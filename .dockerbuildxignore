@@ -1,0 +1,54 @@
+# Same as .dockerignore but for buildx
+# This file ensures consistent ignore patterns
+
+# Build artifacts
+target/
+*.o
+*.so
+*.a
+
+# Git
+.git/
+.github/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Test data
+test-data/
+tests/
+
+# Examples
+examples/
+
+# Benchmarks
+benches/
+
+# CI/CD
+.github/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+.dockerbuildxignore
+
+# Environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Logs
+*.log

@@ -1,0 +1,53 @@
+# Build artifacts
+target/
+*.o
+*.so
+*.a
+
+# Cargo files
+# Note: Cargo.lock is needed for reproducible builds
+
+# Git
+.git/
+.github/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Test data
+test-data/
+tests/
+
+# Examples (not needed in production)
+examples/
+
+# Benchmarks (needed for Cargo.toml parsing)
+# benches/ - included because Cargo.toml references them
+
+# CI/CD
+.github/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Logs
+*.log

@@ -1,0 +1,42 @@
+[package]
+name = "rusthtml5"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "semantic_browser"
+path = "src/lib.rs"
+
+[[bin]]
+name = "semantic_browser_agent"
+path = "src/main.rs"
+
+[[bench]]
+name = "parsing_benchmark"
+harness = false
+
+[dependencies]
+html5ever = "0.26"
+scraper = "0.18"
+oxigraph = "0.4"
+tract-core = "0.21"
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7", features = ["macros"] }
+pyo3 = { version = "0.27", optional = true }
+rustls = "0.21"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+sled = "0.34"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.0"
+tower = "0.5"
+reqwest = { version = "0.12", features = ["json"] }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[features]
+default = []
+pyo3-integration = ["pyo3"]
+seccomp = []  # Enable seccomp sandboxing on Linux

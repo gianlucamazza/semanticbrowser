@@ -1,0 +1,109 @@
+# Multi-stage Dockerfile for testing
+FROM rust:1.75-slim AS base
+
+# Set environment
+ENV PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+ENV CARGO_HOME=/usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+
+WORKDIR /app
+
+# Install system dependencies for testing
+RUN apt-get update && \
+    apt-get install -y \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        curl \
+        && rm -rf /var/lib/apt/lists/*
+
+# Copy Cargo files
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy files for dependency caching
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "pub fn dummy() {}" > src/lib.rs
+
+# Build dependencies
+RUN cargo build --tests && \
+    rm -rf src
+
+# ============================================
+# Test stage - Unit and integration tests
+# ============================================
+FROM base AS test
+
+# Copy all source files
+COPY src ./src
+COPY tests ./tests
+COPY benches ./benches
+
+# Build test binaries
+RUN cargo test --no-run
+
+CMD ["cargo", "test", "--verbose"]
+
+# ============================================
+# Lint stage - Code quality checks
+# ============================================
+FROM base AS lint
+
+# Install rustfmt and clippy
+RUN rustup component add rustfmt clippy
+
+# Copy source files
+COPY src ./src
+COPY tests ./tests
+COPY benches ./benches
+
+# Run linting by default
+CMD ["sh", "-c", "cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings"]
+
+# ============================================
+# Benchmark stage - Performance testing
+# ============================================
+FROM base AS bench
+
+# Copy source files
+COPY src ./src
+COPY benches ./benches
+
+# Build benchmarks
+RUN cargo bench --no-run
+
+CMD ["cargo", "bench", "--verbose"]
+
+# ============================================
+# Integration test stage
+# ============================================
+FROM base AS integration
+
+# Install curl for API testing
+RUN apt-get update && \
+    apt-get install -y curl jq && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy source and test files
+COPY src ./src
+COPY tests ./tests
+COPY examples ./examples
+
+# Build integration tests
+RUN cargo test --test integration_test --no-run
+
+CMD ["cargo", "test", "--test", "integration_test", "--verbose"]
+
+# ============================================
+# Coverage stage - Code coverage analysis
+# ============================================
+FROM base AS coverage
+
+# Install tarpaulin for code coverage
+RUN cargo install cargo-tarpaulin
+
+# Copy source files
+COPY src ./src
+COPY tests ./tests
+
+CMD ["cargo", "tarpaulin", "--out", "Xml", "--output-dir", "/app/coverage"]
