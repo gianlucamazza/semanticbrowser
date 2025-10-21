@@ -36,7 +36,7 @@ fn test_html_parsing_integration() {
     assert_eq!(data.json_ld[0]["@type"], "Person");
 
     // Verify microdata extraction
-    assert!(data.microdata.len() > 0);
+    assert!(!data.microdata.is_empty());
     let product = &data.microdata[0];
     assert!(product.item_type.contains("Product"));
 }
@@ -56,7 +56,7 @@ fn test_entity_extraction_integration() {
     let entities = result.unwrap();
 
     // Should extract capitalized words/phrases
-    assert!(entities.len() > 0);
+    assert!(!entities.is_empty());
 }
 
 #[test]

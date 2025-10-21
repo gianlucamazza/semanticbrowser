@@ -44,6 +44,7 @@ impl KnowledgeGraph {
     /// Otherwise, it performs simple rule-based inference like transitive closure.
     pub fn infer(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Check if ML model is configured
+        #[allow(clippy::disallowed_methods)]
         if let Ok(model_path) = std::env::var("KG_INFERENCE_MODEL_PATH") {
             tracing::info!("Running ML-based KG inference with model: {}", model_path);
 

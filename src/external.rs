@@ -1,5 +1,6 @@
 // External tools integration module
 
+use std::ffi::CStr;
 use std::process::Stdio;
 use tokio::process::Command;
 
@@ -65,8 +66,8 @@ pub async fn browse_with_browser_use(
 
 /// Call browser-use Python library using PyO3 (if available) or subprocess fallback
 pub async fn browse_with_python_browser_use(
-    _url: &str,
-    _query: &str,
+    url: &str,
+    query: &str,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     // Try PyO3 integration first
     #[cfg(feature = "pyo3-integration")]
@@ -74,6 +75,7 @@ pub async fn browse_with_python_browser_use(
         use pyo3::prelude::*;
         use pyo3::types::PyDict;
 
+        #[allow(deprecated)]
         Python::with_gil(|py| {
             // Try to import browser-use
             let result: PyResult<String> = (|| {
@@ -82,8 +84,8 @@ pub async fn browse_with_python_browser_use(
                 kwargs.set_item("url", url)?;
                 kwargs.set_item("query", query)?;
 
-                let result = browser_use.call_method("browse", (), Some(kwargs))?;
-                Ok(result.extract::<String>()?)
+                let result = browser_use.call_method("browse", (), Some(&kwargs))?;
+                result.extract::<String>()
             })();
 
             match result {
@@ -113,6 +115,7 @@ pub async fn run_langgraph_workflow(
     {
         use pyo3::prelude::*;
 
+        #[allow(deprecated)]
         let result = Python::with_gil(|py| -> PyResult<String> {
             // Try to import langgraph
             let code = format!(
@@ -129,8 +132,10 @@ result
                 graph_def, input
             );
 
-            let result = py.eval(&code, None, None)?;
-            Ok(result.extract::<String>()?)
+            let formatted_code = format!("{}\0", code);
+            let code_cstr = CStr::from_bytes_with_nul(formatted_code.as_bytes()).unwrap();
+            let result = py.eval(code_cstr, None, None)?;
+            result.extract::<String>()
         });
 
         if let Ok(data) = result {

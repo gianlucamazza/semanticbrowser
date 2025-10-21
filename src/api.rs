@@ -61,6 +61,7 @@ pub struct BrowseResponse {
 /// Start the agent API server
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize KG with persistence if KG_PERSIST_PATH is set
+    #[allow(clippy::disallowed_methods)]
     let kg = if let Ok(persist_path) = std::env::var("KG_PERSIST_PATH") {
         tracing::info!("Initializing Knowledge Graph with persistence at: {}", persist_path);
         crate::kg::KnowledgeGraph::with_persistence(std::path::Path::new(&persist_path))?

@@ -69,6 +69,7 @@ impl NERModel {
 /// Initialize NER model from environment variable
 pub fn init_ner_model() {
     NER_MODEL.get_or_init(|| {
+        #[allow(clippy::disallowed_methods)]
         if let Ok(model_path) = std::env::var("NER_MODEL_PATH") {
             tracing::info!("Initializing NER model from {}", model_path);
             match NERModel::load(&model_path) {
