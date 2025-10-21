@@ -160,6 +160,58 @@ struct BrowseRequest {
 ```rust
 struct BrowseResponse {
     data: String,
+    snapshot: Option<SemanticSnapshot>,
+}
+```
+
+`data` contains the legacy plain-text summary for backward compatibility. When semantic
+extraction succeeds, `snapshot` provides a structured view of the page that downstream
+clients and the knowledge graph can ingest directly.
+
+### SemanticSnapshot
+// Requires `use std::collections::HashMap;`
+```rust
+struct SemanticSnapshot {
+    title: Option<String>,
+    description: Option<String>,
+    language: Option<String>,
+    canonical_url: Option<String>,
+    final_url: String,
+    keywords: Vec<String>,
+    open_graph: HashMap<String, String>,
+    twitter_card: HashMap<String, String>,
+    json_ld_count: usize,
+    microdata: Vec<MicrodataSummary>,
+    text_preview: String,
+    text_length: usize,
+    query_matches: Vec<QueryMatch>,
+}
+```
+
+### MicrodataSummary
+```rust
+struct MicrodataSummary {
+    item_type: String,
+    properties: usize,
+}
+```
+
+### QueryMatch
+```rust
+struct QueryMatch {
+    excerpt: String,
+    element: String,
+    score: f32,
+}
+```
+
+### BrowseKGResponse
+```rust
+struct BrowseKGResponse {
+    data: String,
+    triples_inserted: usize,
+    final_url: String,
+    snapshot: Option<SemanticSnapshot>,
 }
 ```
 

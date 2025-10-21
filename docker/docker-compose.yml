@@ -4,8 +4,8 @@
 services:
   semantic_browser:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     image: semantic-browser:latest
     container_name: semantic-browser
     restart: unless-stopped
@@ -17,8 +17,8 @@ services:
       # Logging configuration
       RUST_LOG: ${RUST_LOG:-info}
 
-      # Knowledge Graph persistence
-      KG_PERSIST_PATH: ${KG_PERSIST_PATH:-/data/kg}
+      # Knowledge Graph persistence - using in-memory for now
+      # KG_PERSIST_PATH: ${KG_PERSIST_PATH:-/data/kg}
 
       # ML Models (optional)
       NER_MODEL_PATH: ${NER_MODEL_PATH:-}
@@ -32,10 +32,10 @@ services:
       - kg_data:/data/kg
 
       # Optional: mount ML models
-      - ./models:/models:ro
+      - ../models:/models:ro
 
       # Optional: mount custom configuration
-      - ./config:/config:ro
+      - ../config:/config:ro
 
     networks:
       - semantic_net
@@ -63,11 +63,11 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ${KG_DATA_PATH:-./data/kg}
+      device: ${KG_DATA_PATH:-../data/kg}
 
 networks:
   semantic_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.21.0.0/16

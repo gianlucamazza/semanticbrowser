@@ -1,9 +1,12 @@
 // Agent API module
 
+use crate::kg_integration::insert_snapshot_to_kg;
+use crate::models::SemanticSnapshot;
 use axum::http::HeaderMap;
 use axum::{
     extract::{ConnectInfo, State},
-    routing::post,
+    http::StatusCode,
+    routing::{get, post},
     Json, Router,
 };
 use std::collections::HashMap;
@@ -45,6 +48,12 @@ pub struct QueryResponse {
     pub results: Vec<String>, // Placeholder
 }
 
+/// Response listing KG items
+#[derive(serde::Serialize)]
+pub struct GraphItemsResponse {
+    pub items: Vec<String>,
+}
+
 /// Browse request
 #[derive(serde::Deserialize)]
 pub struct BrowseRequest {
@@ -56,6 +65,39 @@ pub struct BrowseRequest {
 #[derive(serde::Serialize)]
 pub struct BrowseResponse {
     pub data: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<SemanticSnapshot>,
+}
+
+/// Browse and insert into KG request (2025 best practice)
+#[derive(Debug, serde::Deserialize)]
+pub struct BrowseKGRequest {
+    pub url: String,
+}
+
+/// Browse and insert into KG response
+#[derive(serde::Serialize)]
+pub struct BrowseKGResponse {
+    pub data: String,
+    pub triples_inserted: usize,
+    pub final_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<SemanticSnapshot>,
+}
+
+/// Token generation request
+#[derive(serde::Deserialize)]
+pub struct TokenRequest {
+    pub username: String,
+    #[serde(default)]
+    pub role: Option<String>,
+}
+
+/// Token response
+#[derive(serde::Serialize)]
+pub struct TokenResponse {
+    pub token: String,
+    pub expires_in: i64,
 }
 
 /// Start the agent API server
@@ -74,13 +116,21 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
         kg: Arc::new(Mutex::new(kg)),
         rate_limits: Arc::new(Mutex::new(HashMap::new())),
     };
-    let app = Router::new()
-        .route("/parse", post(parse_html))
-        .route("/query", post(query_kg))
-        .route("/browse", post(browse_url))
-        .with_state(state);
+    let app = {
+        let router = Router::new()
+            .route("/parse", post(parse_html))
+            .route("/query", post(query_kg))
+            .route("/browse", post(browse_url));
+        #[cfg(feature = "browser-automation")]
+        let router = router.route("/browse_kg", post(browse_url_kg));
+        router
+            .route("/kg/entities", get(list_entities))
+            .route("/kg/relations", get(list_relations))
+            .route("/auth/token", post(generate_token_endpoint))
+            .with_state(state)
+    };
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     let listener = TcpListener::bind(addr).await?;
     tracing::info!("Server running on http://{}", addr);
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
@@ -103,15 +153,8 @@ fn check_rate_limit(rate_limits: &mut HashMap<String, (u32, Instant)>, ip: &str)
     }
 }
 
-/// Check authentication
-fn check_auth(headers: &HeaderMap) -> bool {
-    if let Some(auth) = headers.get("authorization") {
-        if let Ok(auth_str) = auth.to_str() {
-            return auth_str == "Bearer secret"; // Hardcoded for demo
-        }
-    }
-    false
-}
+// Authentication is now handled by AuthenticatedUser extractor (src/auth.rs)
+// This provides JWT-based authentication with configurable secrets
 
 /// Extract real IP from request, considering X-Forwarded-For and X-Real-IP headers
 fn extract_ip(headers: &HeaderMap, addr: &SocketAddr) -> String {
@@ -138,20 +181,19 @@ fn extract_ip(headers: &HeaderMap, addr: &SocketAddr) -> String {
 
 /// Handler for parsing HTML
 #[axum::debug_handler]
+#[tracing::instrument(skip(state, addr, headers, _user, req), fields(html_size = req.html.len()))]
 async fn parse_html(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
+    _user: crate::auth::AuthenticatedUser,
     Json(req): Json<ParseRequest>,
 ) -> Json<ParseResponse> {
-    // Check auth
-    if !check_auth(&headers) {
-        crate::security::log_action("parse_html", "Unauthorized access");
-        return Json(ParseResponse { title: None, entities: vec!["Unauthorized".to_string()] });
-    }
+    // Authentication handled by AuthenticatedUser extractor
 
     // Check rate limit - extract real IP
     let ip = extract_ip(&headers, &addr);
+    tracing::debug!("Processing parse request from IP: {}", ip);
     {
         let mut rate_limits = state.rate_limits.lock().await;
         if !check_rate_limit(&mut rate_limits, &ip) {
@@ -193,20 +235,94 @@ async fn parse_html(
 
 /// Handler for querying KG
 #[axum::debug_handler]
+#[tracing::instrument(skip(state, addr, headers, _user))]
+async fn list_entities(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    _user: crate::auth::AuthenticatedUser,
+) -> Json<GraphItemsResponse> {
+    let ip = extract_ip(&headers, &addr);
+    tracing::debug!("Listing entities for IP: {}", ip);
+    {
+        let mut rate_limits = state.rate_limits.lock().await;
+        if !check_rate_limit(&mut rate_limits, &ip) {
+            crate::security::log_action(
+                "list_entities",
+                &format!("Rate limit exceeded for {}", ip),
+            );
+            return Json(GraphItemsResponse { items: vec!["Rate limit exceeded".to_string()] });
+        }
+    }
+
+    let kg = state.kg.lock().await;
+    match kg.get_all_entities() {
+        Ok(items) => {
+            crate::security::log_action(
+                "list_entities",
+                &format!("Returned {} entities", items.len()),
+            );
+            Json(GraphItemsResponse { items })
+        }
+        Err(e) => {
+            crate::security::log_action("list_entities", &format!("KG error: {}", e));
+            Json(GraphItemsResponse { items: vec![format!("Error retrieving entities: {}", e)] })
+        }
+    }
+}
+
+#[axum::debug_handler]
+#[tracing::instrument(skip(state, addr, headers, _user))]
+async fn list_relations(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    _user: crate::auth::AuthenticatedUser,
+) -> Json<GraphItemsResponse> {
+    let ip = extract_ip(&headers, &addr);
+    tracing::debug!("Listing relations for IP: {}", ip);
+    {
+        let mut rate_limits = state.rate_limits.lock().await;
+        if !check_rate_limit(&mut rate_limits, &ip) {
+            crate::security::log_action(
+                "list_relations",
+                &format!("Rate limit exceeded for {}", ip),
+            );
+            return Json(GraphItemsResponse { items: vec!["Rate limit exceeded".to_string()] });
+        }
+    }
+
+    let kg = state.kg.lock().await;
+    match kg.get_all_relations() {
+        Ok(items) => {
+            crate::security::log_action(
+                "list_relations",
+                &format!("Returned {} relations", items.len()),
+            );
+            Json(GraphItemsResponse { items })
+        }
+        Err(e) => {
+            crate::security::log_action("list_relations", &format!("KG error: {}", e));
+            Json(GraphItemsResponse { items: vec![format!("Error retrieving relations: {}", e)] })
+        }
+    }
+}
+
+/// Handler for querying KG
+#[axum::debug_handler]
+#[tracing::instrument(skip(state, addr, headers, _user, req), fields(query_length = req.query.len()))]
 async fn query_kg(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
+    _user: crate::auth::AuthenticatedUser,
     Json(req): Json<QueryRequest>,
 ) -> Json<QueryResponse> {
-    // Check auth
-    if !check_auth(&headers) {
-        crate::security::log_action("query_kg", "Unauthorized access");
-        return Json(QueryResponse { results: vec!["Unauthorized".to_string()] });
-    }
+    // Authentication handled by AuthenticatedUser extractor
 
     // Check rate limit - extract real IP
     let ip = extract_ip(&headers, &addr);
+    tracing::debug!("Processing KG query from IP: {}", ip);
     {
         let mut rate_limits = state.rate_limits.lock().await;
         if !check_rate_limit(&mut rate_limits, &ip) {
@@ -259,56 +375,204 @@ async fn query_kg(
 
 /// Handler for browsing with external tools
 #[axum::debug_handler]
+#[tracing::instrument(skip(state, addr, headers, _user, req), fields(url = %req.url))]
 async fn browse_url(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
+    _user: crate::auth::AuthenticatedUser,
     Json(req): Json<BrowseRequest>,
 ) -> Json<BrowseResponse> {
-    // Check auth
-    if !check_auth(&headers) {
-        crate::security::log_action("browse_url", "Unauthorized access");
-        return Json(BrowseResponse { data: "Unauthorized".to_string() });
-    }
+    // Authentication handled by AuthenticatedUser extractor
 
     // Check rate limit - extract real IP
     let ip = extract_ip(&headers, &addr);
+    tracing::debug!("Processing browse request from IP: {} for URL: {}", ip, req.url);
     {
         let mut rate_limits = state.rate_limits.lock().await;
         if !check_rate_limit(&mut rate_limits, &ip) {
             crate::security::log_action("browse_url", &format!("Rate limit exceeded for {}", ip));
-            return Json(BrowseResponse { data: "Rate limit exceeded".to_string() });
+            return Json(BrowseResponse {
+                data: "Rate limit exceeded".to_string(),
+                snapshot: None,
+            });
         }
     }
 
     // Basic URL validation
     if !req.url.starts_with("http") {
         crate::security::log_action("browse_url", "Invalid URL");
-        return Json(BrowseResponse { data: "Invalid URL".to_string() });
+        return Json(BrowseResponse { data: "Invalid URL".to_string(), snapshot: None });
     }
 
-    // Try PyO3-based browser-use first, then fall back to HTTP
-    let mut browse_result =
-        crate::external::browse_with_python_browser_use(&req.url, &req.query).await;
-
-    if browse_result.is_err() {
-        tracing::debug!("PyO3 browse failed, falling back to HTTP");
-        browse_result = crate::external::browse_with_browser_use(&req.url, &req.query).await;
-    }
+    // Use smart browse: chromiumoxide → HTTP fallback (best practice 2025)
+    let browse_result = crate::external::browse_with_best_available(&req.url, &req.query).await;
 
     match browse_result {
-        Ok(data) => {
-            // Optionally insert to KG, e.g., add triple for the URL
-            let mut kg = state.kg.lock().await;
-            let _ = kg.insert(&req.url, "browsed", &data);
+        Ok(outcome) => {
+            // Insert structured snapshot into KG
+            {
+                let mut kg = state.kg.lock().await;
+                if let Err(err) =
+                    insert_snapshot_to_kg(&outcome.snapshot, &mut kg, &req.url, Some(&req.query))
+                {
+                    tracing::debug!("Failed to persist snapshot into KG: {}", err);
+                }
+            }
+
             crate::security::log_action("browse_url", &format!("Browsed {} successfully", req.url));
-            Json(BrowseResponse { data })
+            Json(BrowseResponse { data: outcome.summary.clone(), snapshot: Some(outcome.snapshot) })
         }
         Err(e) => {
             crate::security::log_action("browse_url", &format!("Browse error: {}", e));
-            Json(BrowseResponse { data: format!("Error browsing: {}", e) })
+            Json(BrowseResponse { data: format!("Error browsing: {}", e), snapshot: None })
         }
     }
+}
+
+/// Handler for browsing URL and inserting into Knowledge Graph (2025 best practice)
+///
+/// This endpoint combines web browsing with Knowledge Graph population:
+/// - Extracts semantic metadata (Phase 1: meta tags, Open Graph, Twitter Cards)
+/// - Inserts RDF triples into the Knowledge Graph
+/// - Returns extracted data and triple count
+/// - Enables SPARQL queries on browsed content
+///
+/// # Example Request
+/// ```json
+/// {
+///   "url": "https://example.com"
+/// }
+/// ```
+///
+/// # Example Response
+/// ```json
+/// {
+///   "data": "Browsed https://example.com...",
+///   "triples_inserted": 15,
+///   "final_url": "https://example.com"
+/// }
+/// ```
+#[cfg(feature = "browser-automation")]
+#[axum::debug_handler]
+#[tracing::instrument(skip(state, headers), fields(url = %req.url))]
+async fn browse_url_kg(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    _user: crate::auth::AuthenticatedUser,
+    Json(req): Json<BrowseKGRequest>,
+) -> Json<BrowseKGResponse> {
+    // Authentication handled by AuthenticatedUser extractor
+
+    // Check rate limit - extract real IP
+    let ip = extract_ip(&headers, &addr);
+    tracing::debug!("Processing browse_kg request from IP: {} for URL: {}", ip, req.url);
+    {
+        let mut rate_limits = state.rate_limits.lock().await;
+        if !check_rate_limit(&mut rate_limits, &ip) {
+            crate::security::log_action(
+                "browse_url_kg",
+                &format!("Rate limit exceeded for {}", ip),
+            );
+            return Json(BrowseKGResponse {
+                data: "Rate limit exceeded".to_string(),
+                triples_inserted: 0,
+                final_url: req.url.clone(),
+                snapshot: None,
+            });
+        }
+    }
+
+    // Basic URL validation
+    if !req.url.starts_with("http") {
+        crate::security::log_action("browse_url_kg", "Invalid URL");
+        return Json(BrowseKGResponse {
+            data: "Invalid URL".to_string(),
+            triples_inserted: 0,
+            final_url: req.url.clone(),
+            snapshot: None,
+        });
+    }
+
+    // Browse and insert into KG
+    let mut kg = state.kg.lock().await;
+    let options = crate::browser::NavigationOptions::default();
+
+    let browse_result = crate::external::browse_and_insert_kg(&req.url, options, &mut kg).await;
+
+    match browse_result {
+        Ok((semantic_data, count)) => {
+            let snapshot = crate::kg_integration::semantic_data_to_snapshot(&semantic_data);
+            crate::security::log_action(
+                "browse_url_kg",
+                &format!("Browsed {} and inserted {} triples", req.url, count),
+            );
+
+            // Format response data similar to browse_url
+            let mut data = format!("Browsed {} and inserted into KG\n", req.url);
+            if let Some(title) = &snapshot.title {
+                data.push_str(&format!("Title: {}\n", title));
+            }
+            if let Some(desc) = &snapshot.description {
+                data.push_str(&format!("Description: {}\n", desc));
+            }
+            data.push_str(&format!("JSON-LD objects: {}\n", snapshot.json_ld_count));
+            data.push_str(&format!("Microdata items: {}\n", snapshot.microdata.len()));
+            data.push_str(&format!("Triples inserted: {}\n", count));
+
+            Json(BrowseKGResponse {
+                data,
+                triples_inserted: count,
+                final_url: snapshot.final_url.clone(),
+                snapshot: Some(snapshot),
+            })
+        }
+        Err(e) => {
+            crate::security::log_action("browse_url_kg", &format!("Browse error: {}", e));
+            Json(BrowseKGResponse {
+                data: format!("Error browsing and inserting into KG: {}", e),
+                triples_inserted: 0,
+                final_url: req.url.clone(),
+                snapshot: None,
+            })
+        }
+    }
+}
+
+/// Handler for generating JWT tokens
+/// Note: In production, this should require authentication or API key
+/// This is a simplified version for development/testing
+#[axum::debug_handler]
+#[tracing::instrument(skip(req), fields(username = %req.username))]
+async fn generate_token_endpoint(
+    Json(req): Json<TokenRequest>,
+) -> Result<Json<TokenResponse>, (StatusCode, String)> {
+    // In production, you would validate the user credentials here
+    // For now, we just generate a token for any username
+
+    if !crate::auth::JwtConfig::is_enabled() {
+        tracing::warn!("JWT authentication disabled - token generation endpoint unavailable");
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "JWT authentication disabled - token generation unavailable".to_string(),
+        ));
+    }
+
+    tracing::debug!("Generating token for user: {}", req.username);
+    let claims = crate::auth::Claims::new(req.username.clone(), req.role);
+    let token = crate::auth::generate_token(&claims).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("Token generation failed: {}", e))
+    })?;
+
+    let expires_in = claims.exp - claims.iat;
+
+    crate::security::log_action(
+        "generate_token",
+        &format!("Generated token for user: {}", req.username),
+    );
+
+    Ok(Json(TokenResponse { token, expires_in }))
 }
 
 #[cfg(test)]
@@ -329,16 +593,7 @@ mod tests {
         assert!(!check_rate_limit(&mut rate_limits, ip));
     }
 
-    #[test]
-    fn test_check_auth() {
-        let mut headers = HeaderMap::new();
-        headers.insert("authorization", "Bearer secret".parse().unwrap());
-        assert!(check_auth(&headers));
-
-        let mut bad_headers = HeaderMap::new();
-        bad_headers.insert("authorization", "Bearer wrong".parse().unwrap());
-        assert!(!check_auth(&bad_headers));
-    }
+    // Authentication tests moved to src/auth.rs module
 
     #[test]
     fn test_extract_ip() {

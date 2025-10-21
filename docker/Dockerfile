@@ -50,7 +50,8 @@ RUN apt-get update && \
         python3 \
         python3-pip \
         curl \
-        ca-certificates && \
+        ca-certificates \
+        libssl3 && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies for browser automation and agent workflows
@@ -60,16 +61,11 @@ RUN pip install --no-cache-dir --break-system-packages \
     lxml \
     || true
 
-# Create non-root user for security
-RUN useradd -m -u 1000 semantic && \
-    mkdir -p /data && \
-    chown -R semantic:semantic /data
+# Create data directory
+RUN mkdir -p /data
 
 # Copy the binary from builder
 COPY --from=builder /app/target/release/semantic_browser_agent /usr/local/bin/
-
-# Switch to non-root user
-USER semantic
 
 # Set working directory
 WORKDIR /data

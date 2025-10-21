@@ -1,7 +1,8 @@
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 
 /// Represents parsed semantic data from HTML
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemanticData {
     pub title: Option<String>,
     pub microdata: Vec<MicrodataItem>,
@@ -9,7 +10,7 @@ pub struct SemanticData {
 }
 
 /// Microdata item
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MicrodataItem {
     pub item_type: String,
     pub properties: std::collections::HashMap<String, Vec<String>>,

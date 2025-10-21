@@ -58,8 +58,11 @@ pub fn log_action(action: &str, details: &str) {
 
 /// Sandbox a function execution (seccomp-based on Linux)
 ///
-/// This function provides syscall restriction for parsing operations to limit
-/// what operations can be performed, reducing the attack surface.
+/// Best practices 2025:
+/// - Use seccompiler for easy seccomp-bpf filter creation
+/// - Allow minimal syscalls needed for safe operation
+/// - Block dangerous syscalls (exec, socket, ptrace, etc.)
+/// - Apply filters before untrusted code execution
 ///
 /// On Linux with the `seccomp` feature enabled, this restricts syscalls to a safe subset.
 /// On other platforms or without the feature, it's a no-op wrapper.
@@ -69,25 +72,79 @@ where
 {
     #[cfg(all(target_os = "linux", feature = "seccomp"))]
     {
-        // In a real implementation, we would use the seccomp crate:
-        // use seccompiler::{apply_filter, BpfProgram};
-        //
-        // let filter = BpfProgram::new(vec![
-        //     // Allow only necessary syscalls:
-        //     // read, write, open, close, mmap, munmap, etc.
-        //     // Block: exec, socket, connect, etc.
-        // ]);
-        //
-        // apply_filter(&filter).expect("Failed to apply seccomp filter");
+        use seccompiler::{apply_filter, BpfProgram, SeccompAction, SeccompFilter, SeccompRule};
+        use std::collections::HashMap;
 
-        tracing::debug!("Applying seccomp sandbox (not yet implemented)");
-        f()
+        // Define allowed syscalls for HTML parsing
+        // Best practice: whitelist approach - only allow what's needed
+        let allowed_syscalls = vec![
+            // Memory operations
+            libc::SYS_brk,
+            libc::SYS_mmap,
+            libc::SYS_munmap,
+            libc::SYS_mremap,
+            libc::SYS_mprotect,
+            // File operations (read-only)
+            libc::SYS_read,
+            libc::SYS_readv,
+            libc::SYS_pread64,
+            libc::SYS_close,
+            libc::SYS_fstat,
+            libc::SYS_lseek,
+            // Thread/process management (minimal)
+            libc::SYS_futex,
+            libc::SYS_rt_sigreturn,
+            libc::SYS_exit,
+            libc::SYS_exit_group,
+            libc::SYS_getpid,
+            libc::SYS_gettid,
+            // Time operations
+            libc::SYS_clock_gettime,
+            libc::SYS_gettimeofday,
+            // Misc required
+            libc::SYS_getrandom,
+            libc::SYS_sched_getaffinity,
+        ];
+
+        // Create filter rules
+        let mut rules = HashMap::new();
+        for &syscall in &allowed_syscalls {
+            rules.insert(syscall as i64, vec![SeccompRule::new(vec![], SeccompAction::Allow)]);
+        }
+
+        // Create the seccomp filter
+        let filter = SeccompFilter::new(
+            rules,
+            SeccompAction::Trap, // Trap on disallowed syscalls
+            SeccompAction::Allow,
+            std::arch::consts::ARCH.try_into().unwrap(),
+        )
+        .expect("Failed to create seccomp filter");
+
+        // Compile to BPF program
+        let bpf_filter: BpfProgram = filter.try_into().expect("Failed to compile BPF filter");
+
+        // Apply the filter
+        match apply_filter(&bpf_filter) {
+            Ok(_) => {
+                tracing::debug!("Seccomp sandbox applied successfully");
+                let result = f();
+                tracing::debug!("Sandboxed operation completed");
+                result
+            }
+            Err(e) => {
+                tracing::error!("Failed to apply seccomp filter: {}", e);
+                // Fall back to executing without sandbox
+                tracing::warn!("Executing without sandbox due to filter application failure");
+                f()
+            }
+        }
     }
 
     #[cfg(not(all(target_os = "linux", feature = "seccomp")))]
     {
         // No sandboxing on non-Linux or when feature is disabled
-        tracing::trace!("Sandboxing not available on this platform");
+        tracing::trace!("Sandboxing not available on this platform or feature not enabled");
         f()
     }
 }

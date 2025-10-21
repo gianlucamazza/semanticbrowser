@@ -1,5 +1,23 @@
 # Semantic Browser for AI Agents
 
+[![CI](https://img.shields.io/github/actions/workflow/status/gianlucamazza/semanticbrowser/ci.yml?branch=main&label=CI&logo=github)](https://github.com/gianlucamazza/semanticbrowser/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-stable-blue.svg?logo=rust)](https://www.rust-lang.org)
+[![Security Audit](https://img.shields.io/github/actions/workflow/status/gianlucamazza/semanticbrowser/security.yml?label=security&logo=github)](https://github.com/gianlucamazza/semanticbrowser/actions/workflows/security.yml)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](./docs/guides/docker-setup.md)
+
+[![Last Commit](https://img.shields.io/github/last-commit/gianlucamazza/semanticbrowser)](https://github.com/gianlucamazza/semanticbrowser/commits/main)
+[![GitHub issues](https://img.shields.io/github/issues/gianlucamazza/semanticbrowser)](https://github.com/gianlucamazza/semanticbrowser/issues)
+[![Contributors](https://img.shields.io/github/contributors/gianlucamazza/semanticbrowser)](https://github.com/gianlucamazza/semanticbrowser/graphs/contributors)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/gianlucamazza/semanticbrowser/network/updates)
+
+[![AI Agents](https://img.shields.io/badge/AI-Agents-FF6F00?logo=robot&logoColor=white)](https://github.com/gianlucamazza/semanticbrowser)
+[![Semantic Web](https://img.shields.io/badge/Semantic-Web-blue?logo=w3c)](https://github.com/gianlucamazza/semanticbrowser)
+[![RDF/SPARQL](https://img.shields.io/badge/RDF-SPARQL-4285F4)](https://github.com/gianlucamazza/semanticbrowser)
+[![Documentation](https://img.shields.io/badge/docs-latest-blue?logo=readthedocs&logoColor=white)](./docs/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./docs/development/contributing.md)
+[![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-enforced-blue)](./docs/code-of-conduct.md)
+
 A Rust-based semantic browser designed for the new generation of AI agents, enabling semantic understanding and interaction with web content.
 
 ## 📚 Documentation

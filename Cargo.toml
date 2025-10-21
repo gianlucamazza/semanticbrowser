@@ -11,6 +11,10 @@ path = "src/lib.rs"
 name = "semantic_browser_agent"
 path = "src/main.rs"
 
+[[bin]]
+name = "semantic_browser_mcp"
+path = "src/bin/semantic_browser_mcp.rs"
+
 [[bench]]
 name = "parsing_benchmark"
 harness = false
@@ -20,9 +24,12 @@ html5ever = "0.26"
 scraper = "0.18"
 oxigraph = "0.4"
 tract-core = "0.21"
+tract-onnx = { version = "0.21", optional = true }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
 pyo3 = { version = "0.27", optional = true }
+# TODO: Add pyo3-async-runtimes when version 0.27 is released
+# pyo3-async-runtimes = { version = "0.27", optional = true, features = ["tokio"] }
 rustls = "0.21"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -31,12 +38,36 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 regex = "1.0"
 tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
 reqwest = { version = "0.12", features = ["json"] }
+jsonwebtoken = "9.3"
+chrono = { version = "0.4", features = ["serde"] }
+libc = "0.2"
+async-trait = "0.1"
+# Browser automation (2025 best practice: chromiumoxide for headless browsing)
+chromiumoxide = { version = "0.7", optional = true }
+futures = { version = "0.3", optional = true }
+# Observability (2025 best practice: OpenTelemetry + Prometheus)
+opentelemetry = { version = "0.27", optional = true }
+opentelemetry_sdk = { version = "0.27", optional = true, features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.27", optional = true }
+tracing-opentelemetry = { version = "0.28", optional = true }
+prometheus = { version = "0.13", optional = true }
+lazy_static = "1.5"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+seccompiler = { version = "0.5", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
+proptest = "1.5"
+test-case = "3.3"
 
 [features]
 default = []
-pyo3-integration = ["pyo3"]
-seccomp = []  # Enable seccomp sandboxing on Linux
+pyo3-integration = ["pyo3"]  # TODO: Add pyo3-async-runtimes when 0.27 is released
+onnx-integration = ["tract-onnx"]
+seccomp = ["seccompiler"]  # Enable seccomp sandboxing on Linux
+telemetry = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp", "tracing-opentelemetry"]  # OpenTelemetry observability
+observability = ["prometheus"]  # Prometheus metrics
+browser-automation = ["chromiumoxide", "futures"]  # Headless browser automation with Chromium

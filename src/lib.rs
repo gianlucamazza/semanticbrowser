@@ -6,7 +6,12 @@
 
 pub mod annotator;
 pub mod api;
+pub mod auth;
+pub mod browser;
 pub mod external;
 pub mod kg;
+pub mod kg_integration;
+pub mod ml;
+pub mod models;
 pub mod parser;
 pub mod security;
