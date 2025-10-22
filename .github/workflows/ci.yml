@@ -14,6 +14,15 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - "--no-default-features"
+          - "--features browser-automation"
+          - "--features llm-openai"
+          - "--features llm-anthropic"
+          - "--features onnx-integration"
+          - "--all-features"
 
     steps:
     - uses: actions/checkout@v4
@@ -25,10 +34,10 @@ jobs:
       uses: Swatinem/rust-cache@v2
 
     - name: Run unit tests
-      run: cargo test --lib
+      run: cargo test --lib ${{ matrix.features }}
 
     - name: Run integration tests
-      run: cargo test --test integration_test
+      run: cargo test --test integration_tests ${{ matrix.features }}
 
   lint:
     name: Lint
@@ -88,3 +97,29 @@ jobs:
 
     - name: Run benchmarks
       run: cargo bench --verbose
+
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [test, lint, build, benchmark]
+    if: always()
+
+    steps:
+    - name: Check CI status
+      run: |
+        echo "## CI/CD Check Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Tests | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Linting | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Benchmarks | ${{ needs.benchmark.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "${{ needs.test.result }}" != "success" || "${{ needs.lint.result }}" != "success" || "${{ needs.build.result }}" != "success" ]]; then
+          echo "❌ CI checks failed! Please review the results above." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "✅ All CI checks passed!" >> $GITHUB_STEP_SUMMARY
+        fi
