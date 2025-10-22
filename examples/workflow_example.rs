@@ -32,9 +32,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     #[cfg(feature = "browser-automation")]
     {
         println!("🌐 Initializing browser...");
-        let (browser, mut handler) = chromiumoxide::Browser::launch(Default::default())
-            .await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+        let (browser, mut handler) = chromiumoxide::Browser::launch(
+            chromiumoxide::BrowserConfig::builder().build().unwrap(),
+        )
+        .await
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
 
         // Spawn browser handler
         tokio::spawn(async move {

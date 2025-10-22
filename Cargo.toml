@@ -42,6 +42,7 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["trace", "cors"] }
 reqwest = { version = "0.12", features = ["json"] }
 jsonwebtoken = "9.3"
+thiserror = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 libc = "0.2"
 async-trait = "0.1"
@@ -75,3 +76,5 @@ telemetry = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp", "tracin
 observability = ["prometheus"]  # Prometheus metrics
 browser-automation = ["chromiumoxide"]  # Headless browser automation with Chromium
 redis-integration = ["redis"]  # Redis for token revocation and caching
+llm-openai = []  # OpenAI LLM provider integration
+llm-anthropic = []  # Anthropic Claude LLM provider integration

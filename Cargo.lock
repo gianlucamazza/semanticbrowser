@@ -3662,6 +3662,7 @@ dependencies = [
  "serde_json",
  "sled",
  "test-case",
+ "thiserror 1.0.69",
  "tokenizers",
  "tokio",
  "tower 0.5.2",
