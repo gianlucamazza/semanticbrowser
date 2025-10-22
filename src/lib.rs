@@ -13,5 +13,6 @@ pub mod kg;
 pub mod kg_integration;
 pub mod ml;
 pub mod models;
+pub mod observability;
 pub mod parser;
 pub mod security;

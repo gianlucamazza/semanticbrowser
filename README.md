@@ -4,88 +4,59 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![Security Audit](https://img.shields.io/github/actions/workflow/status/gianlucamazza/semanticbrowser/security.yml?label=security&logo=github)](https://github.com/gianlucamazza/semanticbrowser/actions/workflows/security.yml)
-[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](./docs/guides/docker-setup.md)
-
-[![Last Commit](https://img.shields.io/github/last-commit/gianlucamazza/semanticbrowser)](https://github.com/gianlucamazza/semanticbrowser/commits/main)
-[![GitHub issues](https://img.shields.io/github/issues/gianlucamazza/semanticbrowser)](https://github.com/gianlucamazza/semanticbrowser/issues)
-[![Contributors](https://img.shields.io/github/contributors/gianlucamazza/semanticbrowser)](https://github.com/gianlucamazza/semanticbrowser/graphs/contributors)
-[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/gianlucamazza/semanticbrowser/network/updates)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://github.com/gianlucamazza/semanticbrowser)
 
 [![AI Agents](https://img.shields.io/badge/AI-Agents-FF6F00?logo=robot&logoColor=white)](https://github.com/gianlucamazza/semanticbrowser)
 [![Semantic Web](https://img.shields.io/badge/Semantic-Web-blue?logo=w3c)](https://github.com/gianlucamazza/semanticbrowser)
 [![RDF/SPARQL](https://img.shields.io/badge/RDF-SPARQL-4285F4)](https://github.com/gianlucamazza/semanticbrowser)
 [![Documentation](https://img.shields.io/badge/docs-latest-blue?logo=readthedocs&logoColor=white)](./docs/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./docs/development/contributing.md)
-[![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-enforced-blue)](./docs/code-of-conduct.md)
 
 A Rust-based semantic browser designed for the new generation of AI agents, enabling semantic understanding and interaction with web content.
 
+## ✨ Features
+
+- **JWT Authentication**: Secure token-based authentication with RBAC and Redis-based token revocation
+- **Observability**: Comprehensive Prometheus metrics, distributed tracing, and structured logging
+- **Performance Monitoring**: Extensive benchmark suite for HTML parsing, KG operations, and ML inference
+- **HTML5 Parsing**: Extract semantic elements like microdata and JSON-LD
+- **Knowledge Graph**: Build and query RDF graphs with SPARQL
+- **Browser Automation**: Headless browsing with chromiumoxide
+- **MCP Protocol**: Full Model Context Protocol server for AI agent integration
+- **ML Integration**: ONNX models for NER and knowledge graph embeddings
+- **Security**: Input validation, rate limiting, audit logging, seccomp sandboxing
+
+## 🚀 Quick Start
+
+```bash
+# Clone repository
+git clone https://github.com/gianlucamazza/semanticbrowser.git
+cd semanticbrowser
+
+# Start with Docker (recommended)
+cp .env.example .env
+./docker/scripts/docker-up.sh --build -d
+
+# Test the API
+./docs/user-guide/examples/parse_html.sh
+```
+
 ## 📚 Documentation
 
-- **[Quick Start](docs/guides/quickstart.md)** - Get started in 5 minutes
-- **[Docker Setup](docs/guides/docker-setup.md)** - Complete Docker setup guide
-- **[Testing](docs/guides/testing.md)** - Comprehensive testing guide
-- **[API Reference](docs/api/README.md)** - REST API documentation
-- **[Architecture](docs/architecture/README.md)** - System architecture overview
-- **[Contributing](docs/development/contributing.md)** - Development guidelines
-- **[docs/examples/](docs/examples/)** - API usage examples
+- **[User Guide](./docs/user-guide/)** - Getting started, setup, and usage
+- **[Developer Guide](./docs/developer-guide/)** - Architecture, testing, contributing
+- **[API Reference](./docs/api/)** - REST API documentation
+- **[Reference](./docs/reference/)** - Technical references and policies
+- **[Examples](./docs/user-guide/examples/)** - Code examples and workflows
 
 ## 🤝 Community
 
-- **[Code of Conduct](docs/code-of-conduct.md)** - Community guidelines
-- **[Security Policy](docs/security.md)** - Vulnerability reporting
+- **[Contributing](./docs/developer-guide/contributing.md)** - Development guidelines
+- **[Code of Conduct](./docs/reference/code-of-conduct.md)** - Community standards
+- **[Security](./docs/reference/security.md)** - Vulnerability reporting
 
-## Features
+## 📄 License
 
-- **HTML5 Parsing**: Extract semantic elements like microdata and JSON-LD.
-- **Knowledge Graph**: Build and query RDF graphs.
-- **Agent API**: REST API for agent interactions.
-- **External Integrations**: Browser automation with browser-use and LangGraph workflows.
-- **Security**: Input validation and logging.
-
-## API
-
-REST API with authentication and rate limiting. See **[API Reference](docs/api/README.md)** for details:
-
-- `POST /parse`: Parse HTML and extract semantic data
-- `POST /query`: Query Knowledge Graph with SPARQL
-- `POST /browse`: Browse URL and extract semantic information
-
-## Architecture
-
-- `parser`: HTML parsing and semantic extraction.
-- `annotator`: Entity recognition and RDF conversion.
-- `kg`: Knowledge graph management.
-- `api`: Agent API server.
-- `security`: Security utilities.
-
-## Quick Start
-
-Get started in 5 minutes with our comprehensive guide:
-
-- **[Docker Setup](docs/guides/quickstart.md)** - Complete Docker-based setup
-- **[Local Development](docs/guides/quickstart.md#option-2-local-development)** - Run with Cargo
-
-### Basic Usage
-
-```bash
-# Copy config and start server
-cp config/.env.example .env
-./docker/scripts/docker-up.sh -d
-
-# Try examples
-./docs/examples/parse_html.sh
-./docs/examples/query_kg.sh
-```
-
-## Dependencies
-
-- html5ever: HTML parsing
-- oxigraph: RDF handling
-- axum: Web server
-- scraper: HTML querying
-- pyo3: Python integration for external tools
-- tract-core: ML inference (with ONNX model support)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Testing
 
