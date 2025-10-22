@@ -8,7 +8,7 @@ Thank you for your interest in contributing to the Semantic Browser project! Thi
 
 - Rust 1.75 or later
 - Docker and Docker Compose (recommended)
-- Python 3.x (optional, for external integrations)
+
 
 ### Quick Start
 
@@ -16,7 +16,7 @@ Thank you for your interest in contributing to the Semantic Browser project! Thi
    ```bash
    git clone <repository-url>
    cd semanticbrowser
-    cp config/.env.example .env
+     cp .env.example .env
    ```
 
 2. **Build and test**:
@@ -150,7 +150,7 @@ make docker-logs
 
 ## Getting Help
 
-- **Documentation**: Check `README.md`, `docs/guides/quickstart.md`, `docs/guides/docker-setup.md`, `docs/guides/testing.md`
+- **Documentation**: Check `README.md`, `docs/user-guide/quickstart.md`, `docs/user-guide/docker-setup.md`, `docs/developer-guide/testing.md`
 - **Issues**: Use GitHub Issues for bugs and feature requests
 - **Discussions**: Use GitHub Discussions for questions
 

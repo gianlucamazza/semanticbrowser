@@ -151,7 +151,13 @@ cargo build --features seccomp
 
 **Optional**:
 - `NER_MODEL_PATH` - Path to ONNX NER model
+- `NER_TOKENIZER_PATH` - Path to Hugging Face `tokenizer.json` matching the NER model
+- `NER_LABELS_PATH` / `NER_LABELS` - Label mapping (JSON file or comma-separated list) for decoding model outputs
 - `KG_INFERENCE_MODEL_PATH` - Path to KG inference model
+- `KG_ENTITY_MAPPING_PATH` / `KG_RELATION_MAPPING_PATH` - Ordered entity/relation identifiers aligned with embedding tensors
+- `KG_ENTITY_EMBEDDINGS_NODE` / `KG_RELATION_EMBEDDINGS_NODE` - Override ONNX constant node names containing embeddings
+- `KG_EMBEDDING_TYPE` - Embedding scoring mode (`TransE`, `DistMult`, `ComplEx`)
+- `KG_INFERENCE_CONFIDENCE_THRESHOLD`, `KG_INFERENCE_TOP_K`, `KG_INFERENCE_SAMPLE_SIZE`, `KG_INFERENCE_MAX_INSERTS` - Controls for ML-based triple generation
 - `KG_PERSIST_PATH` - Persistent storage for Knowledge Graph
 - `CHROMIUMOXIDE_USER_DATA_DIR` - Custom Chromium profile directory (defaults to unique temp folder)
 - `RUST_LOG` - Logging level configuration
@@ -166,7 +172,7 @@ cargo build --features seccomp
 
 ### New Documentation
 
-1. **[CHANGELOG.md](../CHANGELOG.md)** - Complete version history
+1. **[Changelog](../reference/changelog.md)** - Complete version history
 2. **[Authentication Guide](guides/authentication.md)** - JWT setup and usage
 3. **[.env.example](../.env.example)** - Configuration template
 4. **This document** - Feature overview
@@ -266,7 +272,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/parse
 
 ### Migration
 
-See [CHANGELOG.md](../CHANGELOG.md) for detailed migration guide.
+See [Changelog](../reference/changelog.md) for detailed migration guide.
 
 ---
 

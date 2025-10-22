@@ -137,7 +137,66 @@ require_role(&claims, "user")?;  // Error
 1. **Short expiration times** reduce risk if token is compromised
 2. **HTTPS only** in production to prevent token interception
 3. **Secure storage** on client side (avoid localStorage for sensitive data)
-4. **Token revocation** - implement if needed (requires state management)
+4. **Token revocation** - implemented with Redis for immediate invalidation
+
+### Token Revocation with Redis
+
+The Semantic Browser supports immediate token revocation using Redis for state management. This allows invalidating tokens before their natural expiration.
+
+#### Setup
+
+1. **Enable Redis Integration**:
+   ```bash
+   cargo build --features redis-integration
+   ```
+
+2. **Configure Redis**:
+   ```bash
+   # Add to .env
+   REDIS_URL=redis://127.0.0.1:6379
+   # Or with authentication
+   REDIS_URL=redis://username:password@host:6379/0
+   ```
+
+3. **Start Redis Server**:
+   ```bash
+   # Using Docker
+   docker run -d -p 6379:6379 redis:alpine
+
+   # Or install locally
+   redis-server
+   ```
+
+#### Usage
+
+**Revoke a Token**:
+```bash
+curl -X POST http://localhost:3000/auth/revoke \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"token": "token-to-revoke"}'
+```
+
+**Response**:
+```json
+{
+  "message": "Token revoked successfully"
+}
+```
+
+#### How It Works
+
+- Revoked tokens are stored in Redis with their expiration timestamp
+- Each token validation checks Redis for revocation status
+- Revoked tokens are automatically cleaned up when they expire
+- Works across multiple server instances for horizontal scaling
+
+#### Security Benefits
+
+- **Immediate invalidation** of compromised tokens
+- **No database dependency** for core authentication
+- **Automatic cleanup** prevents Redis bloat
+- **Distributed revocation** across server instances
 
 ### Secret Generation
 

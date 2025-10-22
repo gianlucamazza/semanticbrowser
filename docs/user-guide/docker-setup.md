@@ -75,7 +75,6 @@ FROM debian:bookworm-slim
 # Minimal runtime with:
 # - Non-root user (security)
 # - Health checks
-# - Python for external tools
 ```
 
 ### Optimizations
@@ -240,7 +239,7 @@ None (all have defaults)
 | `NER_MODEL_PATH` | NER model | Regex fallback |
 | `KG_INFERENCE_MODEL_PATH` | KG inference | Rule-based |
 
-See `config/.env.example` for complete list.
+See `.env.example` for complete list.
 
 ## Best Practices Implemented
 
@@ -283,7 +282,7 @@ See `config/.env.example` for complete list.
 
 1. Copy environment:
    ```bash
-   cp config/.env.example .env
+   cp .env.example .env
    ```
 
 2. Start services:
@@ -332,7 +331,7 @@ See `config/.env.example` for complete list.
 
 1. Configure environment:
    ```bash
-   cp config/.env.example .env
+   cp .env.example .env
    # Edit .env with production values
    ```
 

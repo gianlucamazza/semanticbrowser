@@ -1338,30 +1338,7 @@ resources:
 6. **Log sanitization**: Filter sensitive data from logs
 7. **User data directory**: Isolate profiles per tenant if multi-tenant
 
----
 
-## Migration from Python browser-use
-
-**Before** (Python subprocess):
-```rust
-let outcome = browse_with_python_browser_use(url, query).await?;
-println!("{}", outcome.summary);
-```
-
-**After** (Rust chromiumoxide):
-```rust
-let outcome = browse_with_best_available(url, query).await?;
-println!("{}", outcome.summary);
-// Falls back to HTTP if chromiumoxide unavailable and still returns the same snapshot shape
-```
-
-**Benefits**:
-- ✅ No Python dependency
-- ✅ Type safety
-- ✅ Better performance
-- ✅ Easier deployment
-
----
 
 ## Examples
 

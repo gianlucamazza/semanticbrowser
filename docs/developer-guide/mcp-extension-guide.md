@@ -44,5 +44,90 @@ Following these steps will let us build and ship a portable MCP extension that w
 - Tools currently implemented:
   - `semanticbrowser.parse_html`: validates and parses raw HTML, returning semantic annotations and updating the local knowledge graph.
   - `semanticbrowser.query_kg`: executes SPARQL queries or updates with built-in validation and summarises results.
-- `semanticbrowser.browse_url`: fetches a URL, produces a semantic summary plus a structured snapshot (`SemanticSnapshot`), and stores findings in the knowledge graph.
+  - `semanticbrowser.browse_url`: fetches a URL, produces a semantic summary plus a structured snapshot (`SemanticSnapshot`), and stores findings in the knowledge graph.
 - The server announces MCP protocol version `2025-06-18`, advertises tool capabilities only, and emits structured summaries via `CallToolResult` payloads (`content` + `structuredContent`). The `structuredContent` for `browse_url` contains the `summary`, original request metadata, and a full `snapshot` (title, canonical URL, Open Graph/Twitter maps, JSON-LD/microdata counts, text preview, query matches).
+
+## Packaging and Distribution
+
+### Build Scripts
+Use `cargo xtask` for automated building and packaging:
+
+```bash
+# Build MCP server binary
+cargo xtask build --release --output dist
+
+# Create distribution package with checksums
+cargo xtask package --version 0.1.0 --output dist
+
+# Generate MCP manifest
+cargo xtask manifest --output mcp-manifest.json
+```
+
+### Distribution Artifacts
+- **Binary**: `semantic_browser_mcp` (statically linked for Linux/macOS/Windows)
+- **Manifest**: `mcp-manifest.json` (MCP server configuration)
+- **Checksums**: `SHA256SUMS` (integrity verification)
+- **Archive**: `semantic-browser-mcp-{version}.tar.gz` (complete package)
+
+### Installation Guide
+
+#### Prerequisites
+- Rust toolchain (1.70+)
+- Linux/macOS/Windows support
+
+#### Quick Install
+```bash
+# Download and extract
+wget https://github.com/your-org/semantic-browser/releases/download/v0.1.0/semantic-browser-mcp-0.1.0.tar.gz
+tar -xzf semantic-browser-mcp-0.1.0.tar.gz
+cd semantic-browser-mcp-0.1.0
+
+# Verify checksums
+sha256sum -c SHA256SUMS
+
+# Make executable
+chmod +x semantic_browser_mcp
+```
+
+#### Build from Source
+```bash
+# Clone repository
+git clone https://github.com/your-org/semantic-browser.git
+cd semantic-browser
+
+# Build MCP server
+cargo build --release --bin semantic_browser_mcp
+
+# Copy to desired location
+cp target/release/semantic_browser_mcp /usr/local/bin/
+```
+
+#### MCP Client Configuration
+Add to your MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "semantic-browser": {
+      "command": "semantic_browser_mcp",
+      "args": [],
+      "env": {
+        "RUST_LOG": "info",
+        "KG_PERSIST_PATH": "/path/to/kg/storage"
+      }
+    }
+  }
+}
+```
+
+#### Environment Variables
+- `RUST_LOG`: Logging level (default: info)
+- `KG_PERSIST_PATH`: Knowledge graph persistence directory
+- `JWT_SECRET`: Authentication secret (if enabled)
+- `NER_MODEL_PATH`: ONNX NER model path (optional)
+
+#### Troubleshooting
+- **Connection failed**: Ensure binary is executable and in PATH
+- **Tool not found**: Check MCP client configuration
+- **Permission denied**: Run `chmod +x semantic_browser_mcp`
+- **Logs**: Set `RUST_LOG=debug` for verbose output

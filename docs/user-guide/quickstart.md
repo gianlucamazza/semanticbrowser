@@ -6,7 +6,7 @@ Get up and running with the Semantic Browser in 5 minutes.
 
 Choose one of:
 - **Docker** (Recommended): Docker and Docker Compose
-- **Local**: Rust 1.75+, Python 3.x (optional)
+- **Local**: Rust 1.75+
 
 ## Option 1: Docker (Recommended) 🐳
 
@@ -17,7 +17,7 @@ Choose one of:
 cd semanticbrowser
 
 # Copy environment template
-cp config/.env.example .env
+cp .env.example .env
 
 # (Optional) Edit .env for custom configuration
 # nano .env
@@ -198,13 +198,13 @@ curl -X POST http://localhost:3000/browse \
 
 ## Configuration ⚙️
 
-See **[Docker Setup Environment Variables](../guides/docker-setup.md#environment-variables)** for complete configuration options.
+See **[Docker Setup Environment Variables](docker-setup.md#environment-variables)** for complete configuration options.
 
 ### Basic Configuration
 
 ```bash
 # Copy template
-cp config/.env.example .env
+cp .env.example .env
 
 # Edit as needed
 nano .env
@@ -387,7 +387,7 @@ RUST_LOG=debug docker-compose up
 
 ### Docker Workflow
 ```bash
-cp config/.env.example .env
+cp .env.example .env
 ./docker/scripts/docker-up.sh -d
 ./examples/parse_html.sh
 ./docker/scripts/docker-up.sh --stop

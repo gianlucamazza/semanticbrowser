@@ -273,5 +273,5 @@ cargo fmt --check
 
 ---
 
-**Questions?** See `docs/guides/testing.md` for detailed testing guide.
+**Questions?** See `docs/developer-guide/testing.md` for detailed testing guide.
 
