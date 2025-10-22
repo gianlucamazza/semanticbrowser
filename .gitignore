@@ -1,7 +1,6 @@
 # Rust
 /target
 .cargo/
-Cargo.lock
 *.rs.bk
 
 # IDE
@@ -9,6 +8,7 @@ Cargo.lock
 .idea/
 .zed/
 .claude/
+.grok/
 *.swp
 *.swo
 *~
@@ -18,15 +18,20 @@ Cargo.lock
 .env
 .env.local
 .env.*.local
+
+# Documentation
+site/
 config/.env
 
 # Data
 data/kg/*
 !data/kg/README.md
+data/browser-data/
 models/*
 !models/README.md
 config/*
 !config/README.md
+dist/
 
 # Test results
 test-results/
@@ -44,3 +49,4 @@ coverage/
 *.bak
 *.cache
 .cache/
+agent.pid
