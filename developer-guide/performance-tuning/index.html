@@ -1,0 +1,1965 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Comprehensive documentation for the Semantic Browser for AI Agents">
+      
+      
+        <meta name="author" content="Semantic Browser Team">
+      
+      
+        <link rel="canonical" href="https://gianlucamazza.github.io/semanticbrowser/developer-guide/performance-tuning/">
+      
+      
+        <link rel="prev" href="../contributing/">
+      
+      
+        <link rel="next" href="../production-deployment/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
+    
+    
+      
+        <title>Performance Tuning - Semantic Browser Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.7e37652d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#performance-tuning-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Semantic Browser Documentation" class="md-header__button md-logo" aria-label="Semantic Browser Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Semantic Browser Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Performance Tuning
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/gianlucamazza/semanticbrowser" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    gianlucamazza/semanticbrowser
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/quickstart/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/authentication/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Semantic Browser Documentation" class="md-nav__button md-logo" aria-label="Semantic Browser Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Semantic Browser Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/gianlucamazza/semanticbrowser" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    gianlucamazza/semanticbrowser
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../../user-guide/quickstart/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    User Guide
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Testing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Performance Tuning
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Performance Tuning
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#system-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      System Requirements
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="System Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#minimum-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Minimum Requirements
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommended-for-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommended for Production
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration Tuning
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Tuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment Variables
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      Performance Monitoring
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Metrics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prometheus-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prometheus Metrics
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimization-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Optimization Strategies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optimization Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-knowledge-graph-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Knowledge Graph Optimization
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Knowledge Graph Optimization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#indexing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Indexing Strategy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Query Optimization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inference Tuning
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-browser-automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Browser Automation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Browser Automation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pool-sizing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pool Sizing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-blocking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Blocking
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#javascript-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      JavaScript Control
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-html-parsing" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. HTML Parsing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. HTML Parsing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memory-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Memory Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      Caching
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-machine-learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Machine Learning
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Machine Learning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#onnx-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      ONNX Optimization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-acceleration-future" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPU Acceleration (Future)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmarking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmarking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#built-in-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Built-in Benchmarks
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Custom Benchmarks
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#profiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Profiling
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scaling-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scaling Strategies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scaling Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vertical-scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Vertical Scaling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#horizontal-scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Horizontal Scaling
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database Optimization
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Database Optimization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#knowledge-graph-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Knowledge Graph Storage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Knowledge Graph Storage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oxigraph-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Oxigraph Tuning
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#external-databases" class="md-nav__link">
+    <span class="md-ellipsis">
+      External Databases
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#caching-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Caching Strategy
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Caching Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-level-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-level Caching
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cache Configuration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Network Optimization
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Network Optimization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connection-pooling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Connection Pooling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compression
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cdn-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      CDN Integration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring-and-alerting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitoring and Alerting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Monitoring and Alerting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-alerts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Alerts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logging Optimization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting-performance-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting Performance Issues
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting Performance Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#slow-api-responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      Slow API Responses
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-memory-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      High Memory Usage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-cpu-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      High CPU Usage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Performance Testing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#load-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Load Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stress-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stress Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capacity-planning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Capacity Planning
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#development" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production" class="md-nav__link">
+    <span class="md-ellipsis">
+      Production
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maintenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Maintenance
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      References
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../production-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Production Deployment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-extension-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MCP Extension
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../../reference/authentication/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/gianlucamazza/semanticbrowser/edit/main/docs/developer-guide/performance-tuning.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/gianlucamazza/semanticbrowser/raw/main/docs/developer-guide/performance-tuning.md" title="View source of this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
+    </a>
+  
+
+
+<h1 id="performance-tuning-guide">Performance Tuning Guide<a class="headerlink" href="#performance-tuning-guide" title="Permanent link">&para;</a></h1>
+<p>This guide provides optimization strategies and configuration tips for maximizing the performance of the Semantic Browser.</p>
+<h2 id="system-requirements">System Requirements<a class="headerlink" href="#system-requirements" title="Permanent link">&para;</a></h2>
+<h3 id="minimum-requirements">Minimum Requirements<a class="headerlink" href="#minimum-requirements" title="Permanent link">&para;</a></h3>
+<ul>
+<li>CPU: 2 cores</li>
+<li>RAM: 4GB</li>
+<li>Storage: 10GB SSD</li>
+<li>Network: 100Mbps</li>
+</ul>
+<h3 id="recommended-for-production">Recommended for Production<a class="headerlink" href="#recommended-for-production" title="Permanent link">&para;</a></h3>
+<ul>
+<li>CPU: 4+ cores</li>
+<li>RAM: 8GB+</li>
+<li>Storage: 50GB+ SSD</li>
+<li>Network: 1Gbps</li>
+</ul>
+<h2 id="configuration-tuning">Configuration Tuning<a class="headerlink" href="#configuration-tuning" title="Permanent link">&para;</a></h2>
+<h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Server Configuration</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PORT</span><span class="o">=</span><span class="m">3000</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">WORKERS</span><span class="o">=</span><span class="m">4</span><span class="w">  </span><span class="c1"># Match CPU cores</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Knowledge Graph</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_PERSIST_PATH</span><span class="o">=</span>/fast/ssd/kg
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_INFERENCE_TOP_K</span><span class="o">=</span><span class="m">50</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_INFERENCE_CONFIDENCE_THRESHOLD</span><span class="o">=</span><span class="m">0</span>.7
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Browser Automation</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_POOL_SIZE</span><span class="o">=</span><span class="m">4</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_TIMEOUT_SECS</span><span class="o">=</span><span class="m">30</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># Caching</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTML_CACHE_SIZE_MB</span><span class="o">=</span><span class="m">100</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_CACHE_SIZE_MB</span><span class="o">=</span><span class="m">500</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># Rate Limiting</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nb">export</span><span class="w"> </span><span class="nv">RATE_LIMIT_REQUESTS_PER_MINUTE</span><span class="o">=</span><span class="m">100</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="nb">export</span><span class="w"> </span><span class="nv">RATE_LIMIT_BURST_SIZE</span><span class="o">=</span><span class="m">20</span>
+</span></code></pre></div>
+<h2 id="performance-monitoring">Performance Monitoring<a class="headerlink" href="#performance-monitoring" title="Permanent link">&para;</a></h2>
+<h3 id="key-metrics">Key Metrics<a class="headerlink" href="#key-metrics" title="Permanent link">&para;</a></h3>
+<p>Monitor these metrics for performance optimization:</p>
+<ol>
+<li><strong>Response Time</strong>: API endpoint latency</li>
+<li><strong>Throughput</strong>: Requests per second</li>
+<li><strong>Memory Usage</strong>: RSS and virtual memory</li>
+<li><strong>CPU Usage</strong>: User and system time</li>
+<li><strong>Disk I/O</strong>: Read/write operations for KG</li>
+<li><strong>Network I/O</strong>: Bandwidth usage</li>
+</ol>
+<h3 id="prometheus-metrics">Prometheus Metrics<a class="headerlink" href="#prometheus-metrics" title="Permanent link">&para;</a></h3>
+<p>Enable metrics collection:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PROMETHEUS_METRICS</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">METRICS_PORT</span><span class="o">=</span><span class="m">9090</span>
+</span></code></pre></div>
+<p>Key metrics to monitor:
+- <code>http_requests_total</code> - Request count by endpoint
+- <code>http_request_duration_seconds</code> - Response time percentiles
+- <code>semantic_browser_kg_triples_total</code> - Knowledge graph size
+- <code>semantic_browser_memory_usage_bytes</code> - Memory consumption
+- <code>semantic_browser_browser_pool_active</code> - Active browser instances</p>
+<h2 id="optimization-strategies">Optimization Strategies<a class="headerlink" href="#optimization-strategies" title="Permanent link">&para;</a></h2>
+<h3 id="1-knowledge-graph-optimization">1. Knowledge Graph Optimization<a class="headerlink" href="#1-knowledge-graph-optimization" title="Permanent link">&para;</a></h3>
+<h4 id="indexing-strategy">Indexing Strategy<a class="headerlink" href="#indexing-strategy" title="Permanent link">&para;</a></h4>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// Enable persistent storage for large KGs</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">kg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KnowledgeGraph</span><span class="p">::</span><span class="n">with_persistence</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">// Use appropriate page size</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">kg</span><span class="p">.</span><span class="n">set_page_size</span><span class="p">(</span><span class="mi">4096</span><span class="p">);</span>
+</span></code></pre></div>
+<h4 id="query-optimization">Query Optimization<a class="headerlink" href="#query-optimization" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Use LIMIT clauses in SPARQL queries</li>
+<li>Prefer FILTER over complex patterns</li>
+<li>Cache frequent queries</li>
+</ul>
+<h4 id="inference-tuning">Inference Tuning<a class="headerlink" href="#inference-tuning" title="Permanent link">&para;</a></h4>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Adjust inference parameters</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_INFERENCE_TOP_K</span><span class="o">=</span><span class="m">25</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_INFERENCE_CONFIDENCE_THRESHOLD</span><span class="o">=</span><span class="m">0</span>.8
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_INFERENCE_MAX_INSERTS</span><span class="o">=</span><span class="m">1000</span>
+</span></code></pre></div>
+<h3 id="2-browser-automation">2. Browser Automation<a class="headerlink" href="#2-browser-automation" title="Permanent link">&para;</a></h3>
+<h4 id="pool-sizing">Pool Sizing<a class="headerlink" href="#pool-sizing" title="Permanent link">&para;</a></h4>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Match pool size to concurrent requests</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_POOL_SIZE</span><span class="o">=</span><span class="m">4</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Adjust timeouts</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_TIMEOUT_SECS</span><span class="o">=</span><span class="m">20</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_NAVIGATION_TIMEOUT_SECS</span><span class="o">=</span><span class="m">15</span>
+</span></code></pre></div>
+<h4 id="resource-blocking">Resource Blocking<a class="headerlink" href="#resource-blocking" title="Permanent link">&para;</a></h4>
+<p>Enable resource blocking to reduce bandwidth:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_BLOCK_IMAGES</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_BLOCK_CSS</span><span class="o">=</span><span class="nb">false</span><span class="w">  </span><span class="c1"># May affect rendering</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_BLOCK_FONTS</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_BLOCK_ADS</span><span class="o">=</span><span class="nb">true</span>
+</span></code></pre></div></p>
+<h4 id="javascript-control">JavaScript Control<a class="headerlink" href="#javascript-control" title="Permanent link">&para;</a></h4>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_DISABLE_JAVASCRIPT</span><span class="o">=</span><span class="nb">false</span><span class="w">  </span><span class="c1"># Required for dynamic content</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BROWSER_WAIT_FOR_IDLE</span><span class="o">=</span><span class="nb">true</span>
+</span></code></pre></div>
+<h3 id="3-html-parsing">3. HTML Parsing<a class="headerlink" href="#3-html-parsing" title="Permanent link">&para;</a></h3>
+<h4 id="memory-management">Memory Management<a class="headerlink" href="#memory-management" title="Permanent link">&para;</a></h4>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Limit HTML size</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MAX_HTML_SIZE_BYTES</span><span class="o">=</span><span class="m">10485760</span><span class="w">  </span><span class="c1"># 10MB</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Control parsing depth</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MAX_DOM_DEPTH</span><span class="o">=</span><span class="m">100</span>
+</span></code></pre></div>
+<h4 id="caching">Caching<a class="headerlink" href="#caching" title="Permanent link">&para;</a></h4>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Enable HTML result caching</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTML_CACHE_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTML_CACHE_TTL_SECS</span><span class="o">=</span><span class="m">3600</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTML_CACHE_SIZE_MB</span><span class="o">=</span><span class="m">200</span>
+</span></code></pre></div>
+<h3 id="4-machine-learning">4. Machine Learning<a class="headerlink" href="#4-machine-learning" title="Permanent link">&para;</a></h3>
+<h4 id="onnx-optimization">ONNX Optimization<a class="headerlink" href="#onnx-optimization" title="Permanent link">&para;</a></h4>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Model optimization</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NER_MODEL_OPTIMIZED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KG_MODEL_OPTIMIZED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Batch processing</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ML_BATCH_SIZE</span><span class="o">=</span><span class="m">16</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ML_MAX_CONCURRENT_INFERENCE</span><span class="o">=</span><span class="m">4</span>
+</span></code></pre></div>
+<h4 id="gpu-acceleration-future">GPU Acceleration (Future)<a class="headerlink" href="#gpu-acceleration-future" title="Permanent link">&para;</a></h4>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ONNX_USE_GPU</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span>
+</span></code></pre></div>
+<h2 id="benchmarking">Benchmarking<a class="headerlink" href="#benchmarking" title="Permanent link">&para;</a></h2>
+<h3 id="built-in-benchmarks">Built-in Benchmarks<a class="headerlink" href="#built-in-benchmarks" title="Permanent link">&para;</a></h3>
+<p>Run performance benchmarks:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># HTML parsing benchmark</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>cargo<span class="w"> </span>bench<span class="w"> </span>--bench<span class="w"> </span>parsing_benchmark
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Stress testing</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--test<span class="w"> </span>stress_tests<span class="w"> </span>--release<span class="w"> </span>--<span class="w"> </span>--nocapture
+</span></code></pre></div>
+<h3 id="custom-benchmarks">Custom Benchmarks<a class="headerlink" href="#custom-benchmarks" title="Permanent link">&para;</a></h3>
+<p>Create custom benchmarks for your use case:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="cp">#[bench]</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">bench_html_parsing_large</span><span class="p">(</span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Bencher</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">html</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">load_large_html_file</span><span class="p">();</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="n">b</span><span class="p">.</span><span class="n">iter</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">        </span><span class="n">black_box</span><span class="p">(</span><span class="n">parse_html</span><span class="p">(</span><span class="o">&amp;</span><span class="n">html</span><span class="p">));</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="p">});</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="profiling">Profiling<a class="headerlink" href="#profiling" title="Permanent link">&para;</a></h3>
+<p>Use profiling tools:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># CPU profiling</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>cargo<span class="w"> </span>flamegraph<span class="w"> </span>--bin<span class="w"> </span>semantic_browser_agent<span class="w"> </span>--<span class="w"> </span>test_scenario
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Memory profiling</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>valgrind<span class="w"> </span>--tool<span class="o">=</span>massif<span class="w"> </span>target/release/semantic_browser_agent
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># System monitoring</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>perf<span class="w"> </span>record<span class="w"> </span>-g<span class="w"> </span>target/release/semantic_browser_agent
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>perf<span class="w"> </span>report
+</span></code></pre></div>
+<h2 id="scaling-strategies">Scaling Strategies<a class="headerlink" href="#scaling-strategies" title="Permanent link">&para;</a></h2>
+<h3 id="vertical-scaling">Vertical Scaling<a class="headerlink" href="#vertical-scaling" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>CPU Optimization</strong></li>
+<li>Increase worker threads: <code>export WORKERS=8</code></li>
+<li>Enable parallel processing: <code>export RAYON_NUM_THREADS=8</code></li>
+<li>
+<p>Use release builds: <code>cargo build --release</code></p>
+</li>
+<li>
+<p><strong>Memory Optimization</strong></p>
+</li>
+<li>Increase RAM for large KGs</li>
+<li>Use SSD storage for KG persistence</li>
+<li>
+<p>Enable memory pooling</p>
+</li>
+<li>
+<p><strong>Storage Optimization</strong></p>
+</li>
+<li>Use NVMe SSDs for KG storage</li>
+<li>Enable compression for large datasets</li>
+<li>Implement data partitioning</li>
+</ol>
+<h3 id="horizontal-scaling">Horizontal Scaling<a class="headerlink" href="#horizontal-scaling" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Load Balancing</strong>
+   <div class="language-nginx highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">upstream</span><span class="w"> </span><span class="s">semantic_browser</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">127.0.0.1</span><span class="p">:</span><span class="mi">3000</span><span class="p">;</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">127.0.0.1</span><span class="p">:</span><span class="mi">3001</span><span class="p">;</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">127.0.0.1</span><span class="p">:</span><span class="mi">3002</span><span class="p">;</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">}</span>
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Shared Storage</strong></p>
+</li>
+<li>Use PostgreSQL/Neo4j for shared KG</li>
+<li>Implement distributed caching (Redis)</li>
+<li>
+<p>Use shared file systems (NFS, Ceph)</p>
+</li>
+<li>
+<p><strong>Service Mesh</strong></p>
+</li>
+<li>Implement service discovery</li>
+<li>Use circuit breakers</li>
+<li>Enable distributed tracing</li>
+</ol>
+<h2 id="database-optimization">Database Optimization<a class="headerlink" href="#database-optimization" title="Permanent link">&para;</a></h2>
+<h3 id="knowledge-graph-storage">Knowledge Graph Storage<a class="headerlink" href="#knowledge-graph-storage" title="Permanent link">&para;</a></h3>
+<h4 id="oxigraph-tuning">Oxigraph Tuning<a class="headerlink" href="#oxigraph-tuning" title="Permanent link">&para;</a></h4>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1">// Custom storage configuration</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Store</span><span class="p">::</span><span class="n">open_with_capacity</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="mi">1_000_000</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1">// Enable query optimization</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">store</span><span class="p">.</span><span class="n">set_query_optimizer</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+</span></code></pre></div>
+<h4 id="external-databases">External Databases<a class="headerlink" href="#external-databases" title="Permanent link">&para;</a></h4>
+<p>For large-scale deployments:</p>
+<ul>
+<li><strong>PostgreSQL</strong>: Use with SPARQL-SQL translation</li>
+<li><strong>Neo4j</strong>: Native graph database</li>
+<li><strong>Virtuoso</strong>: High-performance RDF store</li>
+</ul>
+<h3 id="caching-strategy">Caching Strategy<a class="headerlink" href="#caching-strategy" title="Permanent link">&para;</a></h3>
+<h4 id="multi-level-caching">Multi-level Caching<a class="headerlink" href="#multi-level-caching" title="Permanent link">&para;</a></h4>
+<ol>
+<li><strong>In-memory cache</strong>: Fast access for hot data</li>
+<li><strong>Disk cache</strong>: Persistence for warm data</li>
+<li><strong>Distributed cache</strong>: Redis for cluster coordination</li>
+</ol>
+<h4 id="cache-configuration">Cache Configuration<a class="headerlink" href="#cache-configuration" title="Permanent link">&para;</a></h4>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1">// Application-level caching</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">cache</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Cache</span><span class="p">::</span><span class="n">builder</span><span class="p">()</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="p">.</span><span class="n">max_capacity</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="p">.</span><span class="n">time_to_live</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_secs</span><span class="p">(</span><span class="mi">3600</span><span class="p">))</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="p">.</span><span class="n">build</span><span class="p">();</span>
+</span></code></pre></div>
+<h2 id="network-optimization">Network Optimization<a class="headerlink" href="#network-optimization" title="Permanent link">&para;</a></h2>
+<h3 id="connection-pooling">Connection Pooling<a class="headerlink" href="#connection-pooling" title="Permanent link">&para;</a></h3>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1">// HTTP client configuration</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Client</span><span class="p">::</span><span class="n">builder</span><span class="p">()</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="p">.</span><span class="n">pool_max_idle_per_host</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="p">.</span><span class="n">pool_idle_timeout</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_secs</span><span class="p">(</span><span class="mi">90</span><span class="p">))</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="p">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_secs</span><span class="p">(</span><span class="mi">30</span><span class="p">))</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="p">.</span><span class="n">build</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<h3 id="compression">Compression<a class="headerlink" href="#compression" title="Permanent link">&para;</a></h3>
+<p>Enable response compression:
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1">// Axum compression middleware</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">app</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Router</span><span class="p">::</span><span class="n">new</span><span class="p">()</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="p">.</span><span class="n">layer</span><span class="p">(</span><span class="n">CompressionLayer</span><span class="p">::</span><span class="n">new</span><span class="p">());</span>
+</span></code></pre></div></p>
+<h3 id="cdn-integration">CDN Integration<a class="headerlink" href="#cdn-integration" title="Permanent link">&para;</a></h3>
+<p>Use CDN for static assets and cached responses.</p>
+<h2 id="monitoring-and-alerting">Monitoring and Alerting<a class="headerlink" href="#monitoring-and-alerting" title="Permanent link">&para;</a></h2>
+<h3 id="key-alerts">Key Alerts<a class="headerlink" href="#key-alerts" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>High Latency</strong>
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>http_request_duration_seconds{quantile=&quot;0.95&quot;} &gt; 5.0
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>High Error Rate</strong>
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>rate(http_requests_total{status=&quot;500&quot;}[5m]) &gt; 0.05
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Memory Usage</strong>
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>semantic_browser_memory_usage_bytes &gt; 1e9
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Disk Space</strong>
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>disk_used_percent{mountpoint=&quot;/var/lib/semantic-browser&quot;} &gt; 85
+</span></code></pre></div></p>
+</li>
+</ol>
+<h3 id="logging-optimization">Logging Optimization<a class="headerlink" href="#logging-optimization" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Structured logging</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">RUST_LOG</span><span class="o">=</span>info,semantic_browser<span class="o">=</span>warn
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LOG_FORMAT</span><span class="o">=</span>json
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="c1"># Log sampling</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LOG_SAMPLING_RATE</span><span class="o">=</span><span class="m">0</span>.1
+</span></code></pre></div>
+<h2 id="troubleshooting-performance-issues">Troubleshooting Performance Issues<a class="headerlink" href="#troubleshooting-performance-issues" title="Permanent link">&para;</a></h2>
+<h3 id="slow-api-responses">Slow API Responses<a class="headerlink" href="#slow-api-responses" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Check KG size</strong>: Large KGs slow down queries</li>
+<li><strong>Profile queries</strong>: Use EXPLAIN for SPARQL queries</li>
+<li><strong>Check browser pool</strong>: Ensure sufficient browser instances</li>
+<li><strong>Monitor I/O</strong>: Disk bottlenecks affect performance</li>
+</ol>
+<h3 id="high-memory-usage">High Memory Usage<a class="headerlink" href="#high-memory-usage" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>KG memory mapping</strong>: Large KGs consume memory</li>
+<li><strong>Browser instances</strong>: Each browser uses ~100MB</li>
+<li><strong>Cache sizes</strong>: Adjust cache limits</li>
+<li><strong>Memory leaks</strong>: Monitor with valgrind</li>
+</ol>
+<h3 id="high-cpu-usage">High CPU Usage<a class="headerlink" href="#high-cpu-usage" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>ML inference</strong>: Heavy computation</li>
+<li><strong>HTML parsing</strong>: Complex DOM processing</li>
+<li><strong>Concurrent requests</strong>: Too many simultaneous operations</li>
+<li><strong>Garbage collection</strong>: Inefficient memory management</li>
+</ol>
+<h2 id="performance-testing">Performance Testing<a class="headerlink" href="#performance-testing" title="Permanent link">&para;</a></h2>
+<h3 id="load-testing">Load Testing<a class="headerlink" href="#load-testing" title="Permanent link">&para;</a></h3>
+<p>Use tools like:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Apache Bench</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>ab<span class="w"> </span>-n<span class="w"> </span><span class="m">1000</span><span class="w"> </span>-c<span class="w"> </span><span class="m">10</span><span class="w"> </span>http://localhost:3000/parse
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="c1"># Hey</span>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>hey<span class="w"> </span>-n<span class="w"> </span><span class="m">1000</span><span class="w"> </span>-c<span class="w"> </span><span class="m">10</span><span class="w"> </span>http://localhost:3000/parse
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
+</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="c1"># Artillery</span>
+</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>artillery<span class="w"> </span>quick<span class="w"> </span>--count<span class="w"> </span><span class="m">100</span><span class="w"> </span>--num<span class="w"> </span><span class="m">10</span><span class="w"> </span>http://localhost:3000/parse
+</span></code></pre></div>
+<h3 id="stress-testing">Stress Testing<a class="headerlink" href="#stress-testing" title="Permanent link">&para;</a></h3>
+<p>Built-in stress tests:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--test<span class="w"> </span>stress_tests<span class="w"> </span>--release<span class="w"> </span>--<span class="w"> </span>--nocapture
+</span></code></pre></div>
+<h3 id="capacity-planning">Capacity Planning<a class="headerlink" href="#capacity-planning" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Determine baseline</strong>: Measure performance with typical load</li>
+<li><strong>Scale testing</strong>: Gradually increase load to find limits</li>
+<li><strong>Resource monitoring</strong>: Track CPU, memory, disk, network</li>
+<li><strong>Bottleneck identification</strong>: Find limiting factors</li>
+</ol>
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
+<h3 id="development">Development<a class="headerlink" href="#development" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Use <code>--release</code> builds for performance testing</li>
+<li>Profile regularly during development</li>
+<li>Write performance tests for critical paths</li>
+</ul>
+<h3 id="production">Production<a class="headerlink" href="#production" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Monitor key metrics continuously</li>
+<li>Set up alerting for performance degradation</li>
+<li>Regular performance audits</li>
+<li>Keep dependencies updated</li>
+</ul>
+<h3 id="maintenance">Maintenance<a class="headerlink" href="#maintenance" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Regular benchmark runs</li>
+<li>Performance regression testing</li>
+<li>Capacity planning reviews</li>
+<li>Infrastructure upgrades based on usage patterns</li>
+</ul>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://nnethercote.github.io/perf-book/">Rust Performance Book</a></li>
+<li><a href="https://oxigraph.org/performance/">Oxigraph Performance Tuning</a></li>
+<li><a href="https://onnxruntime.ai/docs/performance/">ONNX Runtime Performance</a></li>
+<li><a href="https://www.brendangregg.com/linuxperf.html">System Performance Tuning</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../contributing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Contributing">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Contributing
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../production-deployment/" class="md-footer__link md-footer__link--next" aria-label="Next: Production Deployment">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Production Deployment
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 Semantic Browser Team - Licensed under MIT
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/gianlucamazza/semanticbrowser" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://hub.docker.com" target="_blank" rel="noopener" title="hub.docker.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M349.9 236.3h-66.1v-59.4h66.1zm0-204.3h-66.1v60.7h66.1zm78.2 144.8H362v59.4h66.1zm-156.3-72.1h-66.1v60.1h66.1zm78.1 0h-66.1v60.1h66.1zm276.8 100c-14.4-9.7-47.6-13.2-73.1-8.4-3.3-24-16.7-44.9-41.1-63.7l-14-9.3-9.3 14c-18.4 27.8-23.4 73.6-3.7 103.8-8.7 4.7-25.8 11.1-48.4 10.7H2.4c-8.7 50.8 5.8 116.8 44 162.1 37.1 43.9 92.7 66.2 165.4 66.2 157.4 0 273.9-72.5 328.4-204.2 21.4.4 67.6.1 91.3-45.2 1.5-2.5 6.6-13.2 8.5-17.1zm-511.1-27.9h-66v59.4h66.1v-59.4zm78.1 0h-66.1v59.4h66.1zm78.1 0h-66.1v59.4h66.1zm-78.1-72.1h-66.1v60.1h66.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["announce.dismiss", "content.action.edit", "content.action.view", "content.code.annotate", "content.code.copy", "content.code.select", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "header.autohide", "navigation.expand", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.prune", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow", "toc.integrate"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.92b07e13.min.js"></script>
+      
+    
+  </body>
+</html>
