@@ -65,6 +65,31 @@ proptest! {
     }
 }
 
+// Test that HTML validation is case-insensitive
+proptest! {
+    #[test]
+    fn test_html_validation_case_insensitive(
+        casing in prop::sample::select(vec!["<SCRIPT>alert(1)</SCRIPT>", "<script>alert(1)</script>"])
+    ) {
+        let result = security::validate_html_input(casing);
+        prop_assert!(result.is_err(), "Script tags should be blocked regardless of case");
+    }
+}
+
+// Test that JSON-LD scripts remain allowed even with varying attribute casing
+proptest! {
+    #[test]
+    fn test_html_json_ld_script_allowed(
+        whitespace in "\\s{0,4}"
+    ) {
+        let html = format!(
+            "<html><head><script{}type=\"APPLICATION/LD+JSON\">{{}}</script></head></html>",
+            whitespace
+        );
+        prop_assert!(security::validate_html_input(&html).is_ok());
+    }
+}
+
 // Test SPARQL query validation
 proptest! {
     #[test]

@@ -184,7 +184,15 @@ async fn test_jwt_generation_performance() {
     use semantic_browser::auth;
 
     std::env::set_var("JWT_SECRET", "test-secret-key-that-is-long-enough-for-validation-32chars");
-    auth::JwtConfig::init().expect("JWT config should initialize");
+    auth::JwtConfig::init()
+        .or_else(|err| {
+            if err == "JWT config already initialized" {
+                Ok(())
+            } else {
+                Err(err)
+            }
+        })
+        .expect("JWT config should initialize");
 
     let iterations = 1000;
     let start = Instant::now();

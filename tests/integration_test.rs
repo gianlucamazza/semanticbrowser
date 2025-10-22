@@ -1,5 +1,8 @@
 use semantic_browser::{annotator, kg, parser, security};
 
+// Test coverage expanded - edge cases, stress tests, security tests, property-based testing, and fuzzing tests
+// are now implemented in separate test files (proptest_tests.rs, fuzz_tests.rs, stress_tests.rs)
+
 #[test]
 fn test_html_parsing_integration() {
     let html = r#"
