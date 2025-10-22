@@ -46,6 +46,7 @@ pub struct MicrodataItem {
 ///
 /// # Examples
 /// ```
+/// use semantic_browser::parser::parse_html;
 /// let html = r#"<html><head><title>Test</title></head><body></body></html>"#;
 /// let data = parse_html(html).unwrap();
 /// assert_eq!(data.title, Some("Test".to_string()));

@@ -227,7 +227,7 @@ async fn test_jwt_validation_performance() {
     let start = Instant::now();
 
     for _ in 0..iterations {
-        let _ = auth::validate_token(&token).expect("Validation should succeed");
+        let _ = auth::validate_token_async(&token).await.expect("Validation should succeed");
     }
 
     let elapsed = start.elapsed();

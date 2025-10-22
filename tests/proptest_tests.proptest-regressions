@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 81ae8f3f3023081278be3ae635d91a0c5bbbe2e92a26491e106c6ffcb4b6c0b7 # shrinks to username = "aAA", role = None
+cc 5a7d792e66f8fd136afd9cbf05322e125910f0ecd6d2d6532ce8982a330cd82f # shrinks to username = "aaa", role = Some("user")
+cc 867b9c4a6b4c80e2a3325051057a497044ec27dddc47161bd20525a3783e6d77 # shrinks to var = "a", predicate = "load"
