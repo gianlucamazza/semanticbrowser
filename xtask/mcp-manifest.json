@@ -1,0 +1,74 @@
+{
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    }
+  },
+  "description": "Semantic Browser MCP Server - HTML parsing, knowledge graph, and web browsing tools",
+  "mcpVersion": "2025-06-18",
+  "name": "semantic-browser-mcp",
+  "server": {
+    "args": [],
+    "command": "./semantic_browser_mcp",
+    "env": {
+      "RUST_LOG": "info"
+    }
+  },
+  "tools": [
+    {
+      "description": "Parse HTML content and extract semantic annotations",
+      "inputSchema": {
+        "properties": {
+          "html": {
+            "description": "Raw HTML content to parse",
+            "type": "string"
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "type": "object"
+      },
+      "name": "semanticbrowser.parse_html"
+    },
+    {
+      "description": "Execute SPARQL queries against the knowledge graph",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "description": "SPARQL query or update statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "semanticbrowser.query_kg"
+    },
+    {
+      "description": "Browse a URL and extract semantic information",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "default": "",
+            "description": "Optional focus query",
+            "type": "string"
+          },
+          "url": {
+            "description": "Target URL to browse",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "name": "semanticbrowser.browse_url"
+    }
+  ],
+  "version": "0.1.0"
+}
