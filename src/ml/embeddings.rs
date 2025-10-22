@@ -14,9 +14,18 @@
 use std::collections::HashMap;
 
 #[cfg(feature = "onnx-integration")]
-use std::path::Path;
+use std::{fs, path::Path};
+
+#[cfg(feature = "onnx-integration")]
+use tract_core::ops::konst::Const;
+#[cfg(feature = "onnx-integration")]
+use tract_core::ops::submodel::InnerModel;
+#[cfg(feature = "onnx-integration")]
+use tract_core::ops::EvalOp;
 #[cfg(feature = "onnx-integration")]
 use tract_core::prelude::*;
+#[cfg(feature = "onnx-integration")]
+use tract_ndarray::prelude::*;
 #[cfg(feature = "onnx-integration")]
 use tract_onnx::prelude::InferenceModelExt;
 
@@ -35,7 +44,6 @@ pub enum EmbeddingType {
 }
 
 /// Knowledge Graph embedding model
-#[allow(dead_code)]
 pub struct EmbeddingModel {
     /// Type of embedding
     pub embedding_type: EmbeddingType,
@@ -46,14 +54,13 @@ pub struct EmbeddingModel {
     /// Relation ID to index mapping
     pub relation_to_idx: HashMap<String, usize>,
     /// Entity embeddings (num_entities x dimension)
-    #[cfg(feature = "onnx-integration")]
-    entity_embeddings: Option<Tensor>,
+    entity_embeddings: Vec<Vec<f32>>,
     /// Relation embeddings (num_relations x dimension)
+    relation_embeddings: Vec<Vec<f32>>,
+    /// Optional ONNX runtime for advanced inference
     #[cfg(feature = "onnx-integration")]
-    relation_embeddings: Option<Tensor>,
-    /// ONNX model for inference
-    #[cfg(feature = "onnx-integration")]
-    model: Option<TractSimplePlan>,
+    #[allow(dead_code)]
+    pub(crate) model: Option<TractSimplePlan>,
 }
 
 impl EmbeddingModel {
@@ -63,19 +70,153 @@ impl EmbeddingModel {
         path: impl AsRef<Path>,
         embedding_type: EmbeddingType,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let model = tract_onnx::onnx().model_for_path(path)?.into_optimized()?.into_runnable()?;
+        let path = path.as_ref();
+        tracing::info!("Loading KG embedding model from {}", path.display());
 
-        // Note: In production, you'd extract entity/relation mappings from model metadata
-        // For now, we create empty mappings that will be populated during training/loading
+        let inference_model = tract_onnx::onnx().model_for_path(path)?;
+        let optimized_model = inference_model.clone().into_optimized()?;
+        let typed_model = optimized_model.as_typed();
+        let runnable = typed_model.clone().into_runnable()?;
+
+        #[allow(clippy::disallowed_methods)]
+        let entity_node = std::env::var("KG_ENTITY_EMBEDDINGS_NODE")
+            .unwrap_or_else(|_| "entity_embeddings".into());
+        #[allow(clippy::disallowed_methods)]
+        let relation_node = std::env::var("KG_RELATION_EMBEDDINGS_NODE")
+            .unwrap_or_else(|_| "relation_embeddings".into());
+
+        let entity_embeddings = Self::extract_embeddings(typed_model, &entity_node)
+            .map_err(|e| format!("Failed to extract entity embeddings: {}", e))?;
+        let relation_embeddings = Self::extract_embeddings(typed_model, &relation_node)
+            .map_err(|e| format!("Failed to extract relation embeddings: {}", e))?;
+
+        if entity_embeddings.is_empty() || relation_embeddings.is_empty() {
+            return Err("Embedding tensors are empty".into());
+        }
+
+        let entity_labels = Self::load_index_mapping("KG_ENTITY_MAPPING_PATH", "entity")?;
+        let relation_labels = Self::load_index_mapping("KG_RELATION_MAPPING_PATH", "relation")?;
+
+        if entity_embeddings.len() != entity_labels.len() {
+            return Err(format!(
+                "Entity embeddings ({}) and mapping ({}) size mismatch",
+                entity_embeddings.len(),
+                entity_labels.len()
+            )
+            .into());
+        }
+
+        if relation_embeddings.len() != relation_labels.len() {
+            return Err(format!(
+                "Relation embeddings ({}) and mapping ({}) size mismatch",
+                relation_embeddings.len(),
+                relation_labels.len()
+            )
+            .into());
+        }
+
+        let dimension = entity_embeddings
+            .first()
+            .map(|v| v.len())
+            .ok_or("Unable to detect embedding dimension")?;
+
+        if relation_embeddings.iter().any(|embedding| embedding.len() != dimension) {
+            return Err("Relation embedding dimension mismatch".into());
+        }
+
+        let entity_to_idx = build_index_map(entity_labels);
+        let relation_to_idx = build_index_map(relation_labels);
+
         Ok(Self {
             embedding_type,
-            dimension: 100, // Default, should be loaded from model
-            entity_to_idx: HashMap::new(),
-            relation_to_idx: HashMap::new(),
-            entity_embeddings: None,
-            relation_embeddings: None,
-            model: Some(model),
+            dimension,
+            entity_to_idx,
+            relation_to_idx,
+            entity_embeddings,
+            relation_embeddings,
+            model: Some(runnable),
         })
+    }
+
+    #[cfg(feature = "onnx-integration")]
+    fn extract_embeddings(
+        model: &TypedModel,
+        node_name: &str,
+    ) -> Result<Vec<Vec<f32>>, Box<dyn std::error::Error>> {
+        let node = model
+            .node_by_name(node_name)
+            .map_err(|_| format!("Node '{}' not found in ONNX graph", node_name))?;
+
+        let konst = node
+            .op_as::<Const>()
+            .ok_or_else(|| format!("Node '{}' is not a constant tensor", node_name))?;
+
+        let tensor = konst.eval(tvec!())?.pop().unwrap();
+        let tensor = tensor.cast_to::<f32>()?.into_owned();
+        let array = tensor.into_array::<f32>()?;
+        let matrix = array
+            .into_dimensionality::<Ix2>()
+            .map_err(|_| format!("Tensor '{}' is not rank-2", node_name))?;
+
+        Ok(matrix.outer_iter().map(|row| row.to_vec()).collect::<Vec<Vec<f32>>>())
+    }
+
+    #[cfg(feature = "onnx-integration")]
+    fn load_index_mapping(
+        env_var: &str,
+        label: &str,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        #[allow(clippy::disallowed_methods)]
+        let path = std::env::var(env_var).map_err(|_| {
+            format!("{} not set. Provide a mapping file for {} identifiers.", env_var, label)
+        })?;
+
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read {} ({}): {}", env_var, path, e))?;
+        let trimmed = raw.trim();
+
+        if trimmed.is_empty() {
+            return Err(format!("{} is empty ({})", env_var, path).into());
+        }
+
+        if trimmed.starts_with('[') {
+            let array: Vec<String> = serde_json::from_str(trimmed)
+                .map_err(|e| format!("Invalid JSON array in {}: {}", path, e))?;
+            return Ok(array);
+        }
+
+        if trimmed.starts_with('{') {
+            let map: HashMap<String, usize> = serde_json::from_str(trimmed)
+                .map_err(|e| format!("Invalid JSON object in {}: {}", path, e))?;
+            let mut entries = vec![String::new(); map.len()];
+            for (key, idx) in map {
+                if idx >= entries.len() {
+                    return Err(format!(
+                        "Index {} for '{}' exceeds mapping size in {}",
+                        idx, key, path
+                    )
+                    .into());
+                }
+                entries[idx] = key;
+            }
+            if entries.iter().any(|s| s.is_empty()) {
+                return Err(format!("Sparse mapping detected in {}", path).into());
+            }
+            return Ok(entries);
+        }
+
+        let lines = trimmed
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .map(String::from)
+            .collect::<Vec<String>>();
+
+        if lines.is_empty() {
+            return Err(format!("No entries found in {}", path).into());
+        }
+
+        Ok(lines)
     }
 
     /// Create a simple in-memory model (for testing)
@@ -85,10 +226,8 @@ impl EmbeddingModel {
             dimension,
             entity_to_idx: HashMap::new(),
             relation_to_idx: HashMap::new(),
-            #[cfg(feature = "onnx-integration")]
-            entity_embeddings: None,
-            #[cfg(feature = "onnx-integration")]
-            relation_embeddings: None,
+            entity_embeddings: Vec::new(),
+            relation_embeddings: Vec::new(),
             #[cfg(feature = "onnx-integration")]
             model: None,
         }
@@ -178,6 +317,90 @@ impl EmbeddingModel {
     pub fn dimension(&self) -> usize {
         self.dimension
     }
+
+    /// Insert or update an entity embedding.
+    pub fn insert_entity_embedding(
+        &mut self,
+        entity: &str,
+        embedding: Vec<f32>,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        if embedding.len() != self.dimension {
+            return Err(format!(
+                "Entity embedding for '{}' has dimension {}, expected {}",
+                entity,
+                embedding.len(),
+                self.dimension
+            )
+            .into());
+        }
+
+        let idx = self.add_entity(entity);
+        if self.entity_embeddings.len() <= idx {
+            self.entity_embeddings.resize(idx + 1, vec![0.0; self.dimension]);
+        }
+        self.entity_embeddings[idx] = embedding;
+        Ok(idx)
+    }
+
+    /// Insert or update a relation embedding.
+    pub fn insert_relation_embedding(
+        &mut self,
+        relation: &str,
+        embedding: Vec<f32>,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        if embedding.len() != self.dimension {
+            return Err(format!(
+                "Relation embedding for '{}' has dimension {}, expected {}",
+                relation,
+                embedding.len(),
+                self.dimension
+            )
+            .into());
+        }
+
+        let idx = self.add_relation(relation);
+        if self.relation_embeddings.len() <= idx {
+            self.relation_embeddings.resize(idx + 1, vec![0.0; self.dimension]);
+        }
+        self.relation_embeddings[idx] = embedding;
+        Ok(idx)
+    }
+
+    /// Retrieve entity embedding slice.
+    pub fn entity_embedding(&self, idx: usize) -> Option<&[f32]> {
+        self.entity_embeddings.get(idx).map(|v| v.as_slice())
+    }
+
+    /// Retrieve relation embedding slice.
+    pub fn relation_embedding(&self, idx: usize) -> Option<&[f32]> {
+        self.relation_embeddings.get(idx).map(|v| v.as_slice())
+    }
+
+    /// Iterate over all known entity identifiers.
+    pub fn entities(&self) -> impl Iterator<Item = &str> {
+        self.entity_to_idx.keys().map(|key| key.as_str())
+    }
+
+    /// Iterate over all known relation identifiers.
+    pub fn relations(&self) -> impl Iterator<Item = &str> {
+        self.relation_to_idx.keys().map(|key| key.as_str())
+    }
+}
+
+impl EmbeddingType {
+    /// Convert raw model score into [0,1] confidence.
+    pub fn score_to_confidence(self, raw_score: f32) -> f32 {
+        let normalized = match self {
+            EmbeddingType::TransE => -raw_score,
+            EmbeddingType::DistMult | EmbeddingType::ComplEx => raw_score,
+        };
+        (1.0 / (1.0 + (-normalized).exp())).clamp(0.0, 1.0)
+    }
+}
+
+#[cfg(feature = "onnx-integration")]
+fn build_index_map(entries: Vec<String>) -> HashMap<String, usize> {
+    entries.into_iter().enumerate().map(|(idx, value)| (value, idx)).collect()
 }
 
 #[cfg(test)]
@@ -206,6 +429,19 @@ mod tests {
         assert_eq!(model.get_entity_idx("http://ex.org/Person"), Some(0));
         assert_eq!(model.get_relation_idx("http://ex.org/worksFor"), Some(0));
         assert_eq!(model.get_entity_idx("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_score_to_confidence_transforms() {
+        let high = EmbeddingType::TransE.score_to_confidence(-1.5);
+        let low = EmbeddingType::TransE.score_to_confidence(-0.1);
+        assert!(high > low);
+        assert!(high > 0.5);
+
+        let high_mult = EmbeddingType::DistMult.score_to_confidence(1.5);
+        let low_mult = EmbeddingType::DistMult.score_to_confidence(0.1);
+        assert!(high_mult > low_mult);
+        assert!(high_mult > 0.5);
     }
 
     #[test]

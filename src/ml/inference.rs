@@ -72,11 +72,9 @@ impl LinkPredictor {
                 continue;
             }
 
-            // In real implementation, we'd fetch actual embeddings
-            // For now, use dummy embeddings for demonstration
-            let score = self.score_triple_by_idx(head_idx, rel_idx, tail_idx);
-
-            candidates.push((entity.clone(), score));
+            if let Some(score) = self.score_triple_by_idx(head_idx, rel_idx, tail_idx) {
+                candidates.push((entity.clone(), score));
+            }
         }
 
         // Sort by score (descending)
@@ -116,8 +114,9 @@ impl LinkPredictor {
                 continue;
             }
 
-            let score = self.score_triple_by_idx(head_idx, rel_idx, tail_idx);
-            candidates.push((entity.clone(), score));
+            if let Some(score) = self.score_triple_by_idx(head_idx, rel_idx, tail_idx) {
+                candidates.push((entity.clone(), score));
+            }
         }
 
         candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -155,8 +154,9 @@ impl LinkPredictor {
                 continue;
             }
 
-            let score = self.score_triple_by_idx(head_idx, rel_idx, tail_idx);
-            candidates.push((relation.clone(), score));
+            if let Some(score) = self.score_triple_by_idx(head_idx, rel_idx, tail_idx) {
+                candidates.push((relation.clone(), score));
+            }
         }
 
         candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -171,18 +171,17 @@ impl LinkPredictor {
 
     /// Score triple by indices (helper function)
     ///
-    /// In real implementation, this would fetch embeddings and use model.score_triple()
-    /// For now, returns a dummy score for demonstration
-    fn score_triple_by_idx(&self, _head_idx: usize, _rel_idx: usize, _tail_idx: usize) -> f32 {
-        // Placeholder: In production, fetch actual embeddings and compute score
-        // Example:
-        // let head_emb = &self.model.entity_embeddings[head_idx];
-        // let rel_emb = &self.model.relation_embeddings[rel_idx];
-        // let tail_emb = &self.model.entity_embeddings[tail_idx];
-        // self.model.score_triple(head_emb, rel_emb, tail_emb)
+    /// Fetches embeddings and computes score with the configured embedding model.
+    fn score_triple_by_idx(&self, head_idx: usize, rel_idx: usize, tail_idx: usize) -> Option<f32> {
+        let head_emb = self.model.entity_embedding(head_idx)?;
+        let rel_emb = self.model.relation_embedding(rel_idx)?;
+        let tail_emb = self.model.entity_embedding(tail_idx)?;
+        Some(self.model.score_triple(head_emb, rel_emb, tail_emb))
+    }
 
-        // For now, return random-ish score based on indices
-        (((_head_idx * 13 + _rel_idx * 17 + _tail_idx * 19) % 100) as f32) / 100.0
+    /// Convert raw score to confidence in [0,1].
+    pub fn score_to_confidence(&self, raw_score: f32) -> f32 {
+        self.model.embedding_type.score_to_confidence(raw_score)
     }
 
     /// Get confidence threshold for filtering predictions
@@ -206,6 +205,11 @@ impl LinkPredictor {
     pub fn num_known_triples(&self) -> usize {
         self.known_triples.len()
     }
+
+    /// Access underlying embedding model metadata.
+    pub fn model(&self) -> &EmbeddingModel {
+        &self.model
+    }
 }
 
 #[cfg(test)]
@@ -225,13 +229,11 @@ mod tests {
 
     #[test]
     fn test_predict_tail() {
-        let mut model = EmbeddingModel::new_simple(EmbeddingType::DistMult, 100);
-
-        // Add entities and relations
-        model.add_entity("http://ex.org/Alice");
-        model.add_entity("http://ex.org/Bob");
-        model.add_entity("http://ex.org/Company");
-        model.add_relation("http://ex.org/worksFor");
+        let mut model = EmbeddingModel::new_simple(EmbeddingType::DistMult, 3);
+        model.insert_entity_embedding("http://ex.org/Alice", vec![1.0, 0.0, 0.0]).unwrap();
+        model.insert_entity_embedding("http://ex.org/Bob", vec![0.8, 0.1, 0.1]).unwrap();
+        model.insert_entity_embedding("http://ex.org/Company", vec![0.5, 0.5, 0.5]).unwrap();
+        model.insert_relation_embedding("http://ex.org/worksFor", vec![0.2, 0.3, 0.4]).unwrap();
 
         let predictor = LinkPredictor::new(model);
 
@@ -247,11 +249,10 @@ mod tests {
 
     #[test]
     fn test_predict_head() {
-        let mut model = EmbeddingModel::new_simple(EmbeddingType::TransE, 100);
-
-        model.add_entity("http://ex.org/Alice");
-        model.add_entity("http://ex.org/Bob");
-        model.add_relation("http://ex.org/knows");
+        let mut model = EmbeddingModel::new_simple(EmbeddingType::TransE, 3);
+        model.insert_entity_embedding("http://ex.org/Alice", vec![0.9, 0.1, 0.0]).unwrap();
+        model.insert_entity_embedding("http://ex.org/Bob", vec![0.7, 0.2, 0.1]).unwrap();
+        model.insert_relation_embedding("http://ex.org/knows", vec![0.05, 0.05, 0.0]).unwrap();
 
         let predictor = LinkPredictor::new(model);
 
@@ -266,12 +267,11 @@ mod tests {
 
     #[test]
     fn test_predict_relation() {
-        let mut model = EmbeddingModel::new_simple(EmbeddingType::ComplEx, 100);
-
-        model.add_entity("http://ex.org/Alice");
-        model.add_entity("http://ex.org/Bob");
-        model.add_relation("http://ex.org/knows");
-        model.add_relation("http://ex.org/likes");
+        let mut model = EmbeddingModel::new_simple(EmbeddingType::ComplEx, 4);
+        model.insert_entity_embedding("http://ex.org/Alice", vec![0.9, 0.1, 0.0, 0.0]).unwrap();
+        model.insert_entity_embedding("http://ex.org/Bob", vec![0.8, 0.2, 0.0, 0.0]).unwrap();
+        model.insert_relation_embedding("http://ex.org/knows", vec![0.3, 0.2, 0.1, 0.1]).unwrap();
+        model.insert_relation_embedding("http://ex.org/likes", vec![0.1, 0.3, 0.2, 0.2]).unwrap();
 
         let predictor = LinkPredictor::new(model);
 
@@ -285,12 +285,11 @@ mod tests {
 
     #[test]
     fn test_filtered_prediction() {
-        let mut model = EmbeddingModel::new_simple(EmbeddingType::DistMult, 100);
-
-        model.add_entity("http://ex.org/Alice");
-        model.add_entity("http://ex.org/Bob");
-        model.add_entity("http://ex.org/Charlie");
-        model.add_relation("http://ex.org/knows");
+        let mut model = EmbeddingModel::new_simple(EmbeddingType::DistMult, 3);
+        model.insert_entity_embedding("http://ex.org/Alice", vec![1.0, 0.0, 0.0]).unwrap();
+        model.insert_entity_embedding("http://ex.org/Bob", vec![0.9, 0.1, 0.0]).unwrap();
+        model.insert_entity_embedding("http://ex.org/Charlie", vec![0.8, 0.2, 0.0]).unwrap();
+        model.insert_relation_embedding("http://ex.org/knows", vec![0.2, 0.2, 0.2]).unwrap();
 
         let mut predictor = LinkPredictor::new(model);
 
@@ -320,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_confidence_threshold() {
-        let model = EmbeddingModel::new_simple(EmbeddingType::TransE, 100);
+        let model = EmbeddingModel::new_simple(EmbeddingType::TransE, 3);
         let predictor = LinkPredictor::new(model);
 
         let threshold = predictor.get_confidence_threshold(0.9);
