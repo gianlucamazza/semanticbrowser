@@ -1,6 +1,8 @@
 // External tools integration module
 
 use crate::models::{BrowseOutcome, MicrodataSummary, QueryMatch, SemanticSnapshot};
+use futures::future::BoxFuture;
+use serde_json;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -331,71 +333,311 @@ pub async fn browse_with_python_browser_use(
     }
 }
 
-/// Call LangGraph for agent workflow using PyO3 (if available) or subprocess fallback
-pub async fn run_langgraph_workflow(
-    graph_def: &str,
-    input: &str,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    // Try PyO3 integration first
-    #[cfg(feature = "pyo3-integration")]
-    {
-        use pyo3::prelude::*;
+/// State for LangGraph workflow
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct WorkflowState {
+    pub input: String,
+    pub current_step: String,
+    pub results: HashMap<String, String>,
+    pub error: Option<String>,
+}
 
-        #[allow(deprecated)]
-        let result = Python::with_gil(|py| -> PyResult<String> {
-            // Try to import langgraph
-            let code = format!(
-                r#"
-from langgraph.graph import StateGraph
-import json
+/// Node function type (async)
+type NodeFn = Box<
+    dyn Fn(
+            &WorkflowState,
+        ) -> BoxFuture<Result<WorkflowState, Box<dyn std::error::Error + Send + Sync>>>
+        + Send
+        + Sync,
+>;
 
-# Parse graph definition
-# graph_def = json.loads('{}')
-# For now, return mock result
-result = 'LangGraph workflow result for: {}'
-result
-"#,
-                graph_def, input
-            );
+/// Conditional edge function type
+type ConditionalFn = Box<dyn Fn(&WorkflowState) -> String + Send + Sync>;
 
-            // In PyO3 0.27, eval needs &CStr
-            use std::ffi::CString;
-            let code_cstr = CString::new(code.as_bytes()).map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid code: {}", e))
-            })?;
-            let result = py.eval(&code_cstr, None, None)?;
-            result.extract::<String>()
-        });
+/// StateGraph for workflow orchestration
+pub struct StateGraph {
+    nodes: HashMap<String, NodeFn>,
+    edges: HashMap<String, String>,
+    conditional_edges: HashMap<String, ConditionalFn>,
+    entry_point: String,
+}
 
-        if let Ok(data) = result {
-            return Ok(data);
-        } else {
-            tracing::warn!("PyO3 LangGraph integration failed, falling back to subprocess");
+impl StateGraph {
+    pub fn new(entry_point: String) -> Self {
+        Self {
+            nodes: HashMap::new(),
+            edges: HashMap::new(),
+            conditional_edges: HashMap::new(),
+            entry_point,
         }
     }
 
-    // Fallback to subprocess
-    tracing::debug!("Using subprocess for LangGraph workflow");
-    let python_code = format!(
-        r#"
-import sys
-# Mock LangGraph integration
-# In real: from langgraph import StateGraph
-# graph_def: {}
-# input: {}
-print('Mock workflow result for input: {}')
-        "#,
-        graph_def, input, input
-    );
-
-    let output =
-        Command::new("python3").arg("-c").arg(&python_code).stdout(Stdio::piped()).output().await?;
-
-    if output.status.success() {
-        Ok(String::from_utf8(output.stdout)?)
-    } else {
-        Err("LangGraph subprocess failed".into())
+    pub fn add_node<F>(mut self, name: &str, node_fn: F) -> Self
+    where
+        F: Fn(
+                &WorkflowState,
+            )
+                -> BoxFuture<Result<WorkflowState, Box<dyn std::error::Error + Send + Sync>>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.nodes.insert(name.to_string(), Box::new(node_fn));
+        self
     }
+
+    pub fn add_edge(mut self, from: &str, to: &str) -> Self {
+        self.edges.insert(from.to_string(), to.to_string());
+        self
+    }
+
+    pub fn add_conditional_edge<F>(mut self, from: &str, condition_fn: F) -> Self
+    where
+        F: Fn(&WorkflowState) -> String + Send + Sync + 'static,
+    {
+        self.conditional_edges.insert(from.to_string(), Box::new(condition_fn));
+        self
+    }
+
+    pub async fn execute(
+        &self,
+        initial_state: WorkflowState,
+    ) -> Result<WorkflowState, Box<dyn std::error::Error + Send + Sync>> {
+        let mut state = initial_state;
+        let mut current_node = self.entry_point.clone();
+
+        loop {
+            tracing::debug!("Executing node: {}", current_node);
+
+            let node_fn = self
+                .nodes
+                .get(&current_node)
+                .ok_or_else(|| format!("Node '{}' not found", current_node))?;
+
+            state = node_fn(&state).await?;
+            state.current_step = current_node.clone();
+
+            // Check for conditional edge first
+            if let Some(condition_fn) = self.conditional_edges.get(&current_node) {
+                current_node = condition_fn(&state);
+                if current_node.is_empty() {
+                    break; // End workflow
+                }
+            } else if let Some(next_node) = self.edges.get(&current_node) {
+                current_node = next_node.clone();
+            } else {
+                break; // No more edges, end workflow
+            }
+        }
+
+        Ok(state)
+    }
+}
+
+/// Call LangGraph for agent workflow using custom StateGraph implementation
+/// StateGraph framework with real node execution (browse_url, extract, kg_query), conditional edges, and error recovery.
+pub async fn run_langgraph_workflow(
+    graph_def: &str,
+    input: &str,
+    kg: std::sync::Arc<tokio::sync::Mutex<crate::kg::KnowledgeGraph>>,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    // Parse graph definition (simplified JSON)
+    let graph_config: serde_json::Value =
+        serde_json::from_str(graph_def).map_err(|e| format!("Invalid graph definition: {}", e))?;
+
+    let entry_point = graph_config["entry_point"].as_str().unwrap_or("start").to_string();
+
+    let mut graph = StateGraph::new(entry_point);
+
+    // Clone kg for use in closures
+    let kg_for_query = kg.clone();
+
+    // Add predefined nodes for common workflow
+    graph = graph
+        .add_node("browse", |state| {
+            Box::pin(async move {
+                let url = state.results.get("url").unwrap_or(&state.input).clone();
+
+                // Real browse implementation using browse_with_best_available
+                match browse_with_best_available(&url, "").await {
+                    Ok(outcome) => {
+                        let mut new_state = state.clone();
+                        new_state.results.insert("browse_result".to_string(), outcome.summary);
+                        new_state.results.insert(
+                            "semantic_data".to_string(),
+                            serde_json::to_string(&outcome.snapshot)?,
+                        );
+                        Ok(new_state)
+                    }
+                    Err(e) => {
+                        let mut new_state = state.clone();
+                        new_state.error = Some(format!("Browse failed: {}", e));
+                        new_state
+                            .results
+                            .insert("browse_result".to_string(), format!("Error: {}", e));
+                        Ok(new_state)
+                    }
+                }
+            })
+        })
+        .add_node("extract", |state| {
+            Box::pin(async move {
+                let semantic_data_str =
+                    state.results.get("semantic_data").unwrap_or(&"{}".to_string()).clone();
+
+                // Parse semantic data and extract entities
+                match serde_json::from_str::<crate::models::SemanticSnapshot>(&semantic_data_str) {
+                    Ok(snapshot) => {
+                        // Extract entities using annotator
+                        let html_content = snapshot
+                            .microdata
+                            .iter()
+                            .map(|item| format!("{:?}", item))
+                            .collect::<Vec<_>>()
+                            .join(" ");
+
+                        let entities =
+                            crate::annotator::annotate_html(&html_content).unwrap_or_default();
+
+                        let mut new_state = state.clone();
+                        new_state.results.insert(
+                            "extract_result".to_string(),
+                            format!("Extracted {} entities: {:?}", entities.len(), entities),
+                        );
+                        new_state
+                            .results
+                            .insert("entities".to_string(), serde_json::to_string(&entities)?);
+                        Ok(new_state)
+                    }
+                    Err(e) => {
+                        let mut new_state = state.clone();
+                        new_state.error = Some(format!("Extract failed: {}", e));
+                        new_state
+                            .results
+                            .insert("extract_result".to_string(), format!("Error: {}", e));
+                        Ok(new_state)
+                    }
+                }
+            })
+        })
+        .add_node("query", move |state| {
+            let kg_clone = kg_for_query.clone();
+            Box::pin(async move {
+                let query = state.results.get("query").unwrap_or(&state.input).clone();
+
+                // Real KG query implementation
+                match kg_clone.lock().await.query(&query) {
+                    Ok(results) => {
+                        let mut new_state = state.clone();
+                        new_state.results.insert(
+                            "query_result".to_string(),
+                            format!("Query returned {} results: {:?}", results.len(), results),
+                        );
+                        Ok(new_state)
+                    }
+                    Err(e) => {
+                        let mut new_state = state.clone();
+                        new_state.error = Some(format!("Query failed: {}", e));
+                        new_state
+                            .results
+                            .insert("query_result".to_string(), format!("Error: {}", e));
+                        Ok(new_state)
+                    }
+                }
+            })
+        });
+
+    // Add edges from config or default
+    if let Some(edges) = graph_config["edges"].as_object() {
+        for (from, to) in edges {
+            if let Some(to_str) = to.as_str() {
+                graph = graph.add_edge(from, to_str);
+            }
+        }
+    } else {
+        // Default workflow: browse -> extract -> query
+        graph = graph
+            .add_edge("start", "browse")
+            .add_edge("browse", "extract")
+            .add_edge("extract", "query");
+    }
+
+    // Add conditional edges
+    if let Some(conditional_edges) = graph_config["conditional_edges"].as_object() {
+        for (from, condition_def) in conditional_edges {
+            if let Some(condition_type) = condition_def["type"].as_str() {
+                match condition_type {
+                    "has_data" => {
+                        graph = graph.add_conditional_edge(from, |state| {
+                            if state.results.contains_key("extract_result") {
+                                "query".to_string()
+                            } else {
+                                "end".to_string()
+                            }
+                        });
+                    }
+                    _ => {
+                        graph = graph.add_conditional_edge(from, |_| "end".to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Add edges
+    if let Some(edges) = graph_config["edges"].as_object() {
+        for (from, to) in edges {
+            if let Some(to_str) = to.as_str() {
+                graph = graph.add_edge(from, to_str);
+            }
+        }
+    }
+
+    // Add conditional edges
+    if let Some(conditional_edges) = graph_config["conditional_edges"].as_object() {
+        for (from, condition_def) in conditional_edges {
+            if let Some(condition_type) = condition_def["type"].as_str() {
+                match condition_type {
+                    "has_data" => {
+                        graph = graph.add_conditional_edge(from, move |state| {
+                            if state.results.contains_key("extract_result") {
+                                "query".to_string()
+                            } else {
+                                "end".to_string()
+                            }
+                        });
+                    }
+                    _ => {
+                        graph = graph.add_conditional_edge(from, move |_| "end".to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Execute workflow
+    let initial_state = WorkflowState {
+        input: input.to_string(),
+        current_step: "start".to_string(),
+        results: HashMap::new(),
+        error: None,
+    };
+
+    let final_state = graph.execute(initial_state).await?;
+
+    // Format result
+    let mut result_lines =
+        vec![format!("Workflow completed. Final step: {}", final_state.current_step)];
+
+    for (key, value) in &final_state.results {
+        result_lines.push(format!("{}: {}", key, value));
+    }
+
+    if let Some(error) = &final_state.error {
+        result_lines.push(format!("Error: {}", error));
+    }
+
+    Ok(result_lines.join("\n"))
 }
 
 // -----------------------------------------------------------------------------

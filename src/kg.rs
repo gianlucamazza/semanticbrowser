@@ -2,7 +2,14 @@
 
 use oxigraph::model::*;
 use oxigraph::store::Store;
+#[cfg(feature = "onnx-integration")]
+use std::collections::HashSet;
 use std::path::Path;
+
+#[cfg(feature = "onnx-integration")]
+use crate::ml::embeddings::{EmbeddingModel, EmbeddingType};
+#[cfg(feature = "onnx-integration")]
+use crate::ml::inference::LinkPredictor;
 
 /// Knowledge Graph wrapper
 pub struct KnowledgeGraph {
@@ -34,6 +41,38 @@ impl KnowledgeGraph {
         let object = NamedNode::new(o)?;
         let quad = Quad::new(subject, predicate, object, GraphName::DefaultGraph);
         self.store.insert(&quad)?;
+        Ok(())
+    }
+
+    #[cfg(feature = "onnx-integration")]
+    fn contains_triple(
+        &self,
+        s: &str,
+        p: &str,
+        o: &str,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let quad = Quad::new(
+            NamedNode::new(s)?,
+            NamedNode::new(p)?,
+            NamedNode::new(o)?,
+            GraphName::DefaultGraph,
+        );
+        Ok(self.store.contains(&quad)?)
+    }
+
+    #[cfg(feature = "onnx-integration")]
+    fn populate_known_triples(
+        &self,
+        predictor: &mut LinkPredictor,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for quad in self.store.iter() {
+            let quad = quad?;
+            if let (Subject::NamedNode(subject), predicate, Term::NamedNode(object)) =
+                (&quad.subject, &quad.predicate, &quad.object)
+            {
+                predictor.add_known_triple(subject.as_str(), predicate.as_str(), object.as_str());
+            }
+        }
         Ok(())
     }
 
@@ -299,124 +338,209 @@ impl KnowledgeGraph {
     #[cfg(feature = "onnx-integration")]
     #[tracing::instrument(skip(self, model_path), fields(model_path = %model_path))]
     fn run_ml_inference(&mut self, model_path: &str) -> Result<usize, Box<dyn std::error::Error>> {
-        use tract_onnx::prelude::*;
+        #[allow(clippy::disallowed_methods)]
+        let embedding_type = std::env::var("KG_EMBEDDING_TYPE")
+            .ok()
+            .and_then(|value| match value.to_lowercase().as_str() {
+                "transe" => Some(EmbeddingType::TransE),
+                "distmult" => Some(EmbeddingType::DistMult),
+                "complex" | "complexe" => Some(EmbeddingType::ComplEx),
+                other => {
+                    tracing::warn!("Unknown KG_EMBEDDING_TYPE '{}', defaulting to TransE", other);
+                    None
+                }
+            })
+            .unwrap_or(EmbeddingType::TransE);
 
-        tracing::info!("Loading KG embedding model from {}", model_path);
+        let mut predictor =
+            LinkPredictor::new(EmbeddingModel::from_onnx(model_path, embedding_type)?);
 
-        // Load and optimize ONNX model
-        let model =
-            tract_onnx::onnx().model_for_path(model_path)?.into_optimized()?.into_runnable()?;
-
-        tracing::debug!("Model loaded and optimized successfully");
-
-        // Get entities and relations from KG
-        let entities = self.get_all_entities()?;
-        let relations = self.get_all_relations()?;
-
-        if entities.len() < 2 || relations.is_empty() {
-            tracing::debug!("Insufficient entities/relations for ML inference");
+        if predictor.num_entities() == 0 || predictor.num_relations() == 0 {
+            tracing::warn!(
+                "Embedding model contains no entities or relations; skipping ML inference"
+            );
             return Ok(0);
         }
 
-        tracing::info!(
-            "Running link prediction on {} entities and {} relations",
-            entities.len(),
-            relations.len()
-        );
+        #[allow(clippy::disallowed_methods)]
+        let threshold = std::env::var("KG_INFERENCE_CONFIDENCE_THRESHOLD")
+            .ok()
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(0.8)
+            .clamp(0.0, 1.0);
 
-        let mut inferred = 0;
-        let confidence_threshold = 0.7; // High-confidence threshold
-        let sample_size = std::cmp::min(50, entities.len()); // Sample for efficiency
+        #[allow(clippy::disallowed_methods)]
+        let top_k = std::env::var("KG_INFERENCE_TOP_K")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(5)
+            .max(1);
 
-        // Predict links for entity pairs
-        for i in 0..sample_size {
-            for j in 0..sample_size {
-                if i == j {
-                    continue;
-                }
+        #[allow(clippy::disallowed_methods)]
+        let sample_size = std::env::var("KG_INFERENCE_SAMPLE_SIZE")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(50)
+            .max(1);
 
-                for relation in &relations {
-                    // Create input tensor for model
-                    let input =
-                        self.create_embedding_input(&entities[i], relation, &entities[j])?;
+        #[allow(clippy::disallowed_methods)]
+        let max_insertions = std::env::var("KG_INFERENCE_MAX_INSERTS")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(500);
 
-                    // Run prediction
-                    match model.run(tvec![input.into()]) {
-                        Ok(result) => {
-                            if let Some(confidence) = self.extract_confidence(&result) {
-                                if confidence > confidence_threshold {
-                                    // Insert high-confidence prediction
-                                    if self.insert(&entities[i], relation, &entities[j]).is_ok() {
-                                        inferred += 1;
-                                        tracing::trace!(
-                                            "Predicted: {} {} {} (conf: {:.3})",
-                                            entities[i],
-                                            relation,
-                                            entities[j],
-                                            confidence
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            tracing::debug!("Prediction error: {}", e);
+        self.populate_known_triples(&mut predictor)?;
+
+        let kg_entities = self.get_all_entities()?;
+        let kg_relations = self.get_all_relations()?;
+
+        let mut entity_candidates: Vec<&String> = kg_entities
+            .iter()
+            .filter(|uri| predictor.model().get_entity_idx(uri.as_str()).is_some())
+            .collect();
+        if entity_candidates.is_empty() {
+            tracing::warn!("No overlapping entities between KG and embedding model");
+            return Ok(0);
+        }
+        entity_candidates.truncate(sample_size);
+
+        let relation_candidates: Vec<&String> = kg_relations
+            .iter()
+            .filter(|uri| predictor.model().get_relation_idx(uri.as_str()).is_some())
+            .collect();
+        if relation_candidates.is_empty() {
+            tracing::warn!("No overlapping relations between KG and embedding model");
+            return Ok(0);
+        }
+
+        let mut inferred = 0usize;
+        let mut inserted: HashSet<(String, String, String)> = HashSet::new();
+
+        let mut try_insert = |kg: &mut KnowledgeGraph,
+                              predictor: &mut LinkPredictor,
+                              head: &str,
+                              relation: &str,
+                              tail: &str|
+         -> Result<bool, Box<dyn std::error::Error>> {
+            if head == tail {
+                return Ok(false);
+            }
+            let key = (head.to_string(), relation.to_string(), tail.to_string());
+            if inserted.contains(&key) || kg.contains_triple(head, relation, tail)? {
+                return Ok(false);
+            }
+            kg.insert(head, relation, tail)?;
+            predictor.add_known_triple(head, relation, tail);
+            inserted.insert(key);
+            Ok(true)
+        };
+
+        for head in &entity_candidates {
+            for relation in &relation_candidates {
+                let predictions = predictor.predict_tail(head, relation, top_k, true)?;
+                for prediction in predictions {
+                    let confidence = predictor.score_to_confidence(prediction.score);
+                    if confidence < threshold {
+                        continue;
+                    }
+                    if try_insert(self, &mut predictor, head, relation, &prediction.uri)? {
+                        inferred += 1;
+                        tracing::debug!(
+                            "Inferred tail: {} {} {} (confidence {:.3})",
+                            head,
+                            relation,
+                            prediction.uri,
+                            confidence
+                        );
+                        if inferred >= max_insertions {
+                            tracing::warn!(
+                                "Reached KG_INFERENCE_MAX_INSERTS limit ({})",
+                                max_insertions
+                            );
+                            return Ok(inferred);
                         }
                     }
                 }
             }
         }
 
-        tracing::info!("ML inference added {} high-confidence triples", inferred);
+        for tail in &entity_candidates {
+            for relation in &relation_candidates {
+                let predictions = predictor.predict_head(relation, tail, top_k, true)?;
+                for prediction in predictions {
+                    let confidence = predictor.score_to_confidence(prediction.score);
+                    if confidence < threshold {
+                        continue;
+                    }
+                    if try_insert(self, &mut predictor, &prediction.uri, relation, tail)? {
+                        inferred += 1;
+                        tracing::debug!(
+                            "Inferred head: {} {} {} (confidence {:.3})",
+                            prediction.uri,
+                            relation,
+                            tail,
+                            confidence
+                        );
+                        if inferred >= max_insertions {
+                            tracing::warn!(
+                                "Reached KG_INFERENCE_MAX_INSERTS limit ({})",
+                                max_insertions
+                            );
+                            return Ok(inferred);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (i, head) in entity_candidates.iter().enumerate() {
+            for tail in entity_candidates.iter().skip(i + 1) {
+                let predictions = predictor.predict_relation(head, tail, top_k, true)?;
+                for prediction in predictions {
+                    let confidence = predictor.score_to_confidence(prediction.score);
+                    if confidence < threshold {
+                        continue;
+                    }
+                    if try_insert(self, &mut predictor, head, &prediction.uri, tail)? {
+                        inferred += 1;
+                        tracing::debug!(
+                            "Inferred relation: {} {} {} (confidence {:.3})",
+                            head,
+                            prediction.uri,
+                            tail,
+                            confidence
+                        );
+                        if inferred >= max_insertions {
+                            tracing::warn!(
+                                "Reached KG_INFERENCE_MAX_INSERTS limit ({})",
+                                max_insertions
+                            );
+                            return Ok(inferred);
+                        }
+                    }
+                    if try_insert(self, &mut predictor, tail, &prediction.uri, head)? {
+                        inferred += 1;
+                        tracing::debug!(
+                            "Inferred relation: {} {} {} (confidence {:.3})",
+                            tail,
+                            prediction.uri,
+                            head,
+                            confidence
+                        );
+                        if inferred >= max_insertions {
+                            tracing::warn!(
+                                "Reached KG_INFERENCE_MAX_INSERTS limit ({})",
+                                max_insertions
+                            );
+                            return Ok(inferred);
+                        }
+                    }
+                }
+            }
+        }
+
+        tracing::info!("ML inference added {} triples above confidence {:.2}", inferred, threshold);
         Ok(inferred)
-    }
-
-    /// Create input tensor for embedding model
-    #[cfg(feature = "onnx-integration")]
-    fn create_embedding_input(
-        &self,
-        subject: &str,
-        relation: &str,
-        object: &str,
-    ) -> Result<tract_onnx::prelude::Tensor, Box<dyn std::error::Error>> {
-        use tract_onnx::prelude::*;
-
-        // Convert URIs to integer IDs using hash
-        let subj_id = self.hash_to_id(subject);
-        let rel_id = self.hash_to_id(relation);
-        let obj_id = self.hash_to_id(object);
-
-        // Create input tensor [batch=1, features=3]
-        let input_vec = vec![subj_id as f32, rel_id as f32, obj_id as f32];
-        let tensor = tract_ndarray::Array2::from_shape_vec((1, 3), input_vec)?;
-
-        Ok(Tensor::from(tensor))
-    }
-
-    /// Hash string to consistent ID
-    #[cfg(feature = "onnx-integration")]
-    fn hash_to_id(&self, s: &str) -> i64 {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        let mut hasher = DefaultHasher::new();
-        s.hash(&mut hasher);
-        (hasher.finish() % 10000) as i64
-    }
-
-    /// Extract confidence score from model output
-    #[cfg(feature = "onnx-integration")]
-    fn extract_confidence(&self, result: &[tract_onnx::prelude::TValue]) -> Option<f32> {
-        if result.is_empty() {
-            return None;
-        }
-
-        // Extract first output value as confidence
-        if let Ok(tensor) = result[0].to_array_view::<f32>() {
-            tensor.iter().next().copied()
-        } else {
-            None
-        }
     }
 
     /// Get all unique entities from knowledge graph
