@@ -11,6 +11,6 @@ pub mod metrics;
 
 #[cfg(feature = "observability")]
 pub use metrics::{
-    record_api_request, record_kg_operation, record_browser_operation, record_parse_operation,
-    get_metrics_handler, init_metrics,
+    get_metrics_handler, init_metrics, record_api_request, record_browser_operation,
+    record_kg_operation, record_parse_operation,
 };
