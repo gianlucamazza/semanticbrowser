@@ -94,7 +94,7 @@ if [ -f .env ]; then
     export $(cat .env | grep -v '^#' | xargs)
 else
     print_info "No .env file found, using defaults"
-    print_info "Copy config/.env.example to .env to customize"
+    print_info "Copy .env.example to .env to customize"
 fi
 
 # Build if requested
