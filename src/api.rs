@@ -29,11 +29,25 @@ pub struct ParseRequest {
     pub html: String,
 }
 
+/// Request for LangGraph workflow execution
+#[derive(serde::Deserialize)]
+pub struct LangGraphRequest {
+    pub graph_definition: String,
+    pub input: String,
+}
+
 /// Response with parsed data
 #[derive(serde::Serialize)]
 pub struct ParseResponse {
     pub title: Option<String>,
     pub entities: Vec<String>,
+}
+
+/// Response for LangGraph workflow execution
+#[derive(serde::Serialize)]
+pub struct LangGraphResponse {
+    pub result: String,
+    pub workflow_state: serde_json::Value,
 }
 
 /// Query request
@@ -100,6 +114,19 @@ pub struct TokenResponse {
     pub expires_in: i64,
 }
 
+/// Token revocation request
+#[derive(serde::Deserialize)]
+pub struct RevokeTokenRequest {
+    pub token: String,
+}
+
+/// Token revocation response
+#[derive(serde::Serialize)]
+pub struct RevokeTokenResponse {
+    pub revoked: bool,
+    pub message: String,
+}
+
 /// Start the agent API server
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize KG with persistence if KG_PERSIST_PATH is set
@@ -112,6 +139,27 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
         crate::kg::KnowledgeGraph::new()
     };
 
+    // Initialize Redis token revocation store if feature is enabled
+    #[cfg(feature = "redis-integration")]
+    {
+        #[allow(clippy::disallowed_methods)]
+        if let Ok(redis_url) = std::env::var("REDIS_URL") {
+            tracing::info!("Initializing Redis token revocation store");
+            match crate::auth::TokenRevocationStore::new(&redis_url).await {
+                Ok(store) => {
+                    crate::auth::TokenRevocationStore::init_global(store);
+                    tracing::info!("Redis token revocation store initialized successfully");
+                }
+                Err(e) => {
+                    tracing::error!("Failed to initialize Redis token revocation store: {}", e);
+                    tracing::warn!("Token revocation will be disabled");
+                }
+            }
+        } else {
+            tracing::warn!("REDIS_URL not set - token revocation disabled");
+        }
+    }
+
     let state = AppState {
         kg: Arc::new(Mutex::new(kg)),
         rate_limits: Arc::new(Mutex::new(HashMap::new())),
@@ -120,13 +168,16 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
         let router = Router::new()
             .route("/parse", post(parse_html))
             .route("/query", post(query_kg))
-            .route("/browse", post(browse_url));
+            .route("/browse", post(browse_url))
+            .route("/langgraph", post(run_langgraph));
         #[cfg(feature = "browser-automation")]
         let router = router.route("/browse_kg", post(browse_url_kg));
         router
             .route("/kg/entities", get(list_entities))
             .route("/kg/relations", get(list_relations))
             .route("/auth/token", post(generate_token_endpoint))
+            .route("/auth/revoke", post(revoke_token_endpoint))
+            .route("/metrics", get(metrics_endpoint))
             .with_state(state)
     };
 
@@ -135,6 +186,114 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Server running on http://{}", addr);
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
     Ok(())
+}
+
+/// Handler for revoking JWT tokens
+#[axum::debug_handler]
+#[tracing::instrument(skip(req), fields(token_prefix = %req.token.chars().take(10).collect::<String>()))]
+async fn revoke_token_endpoint(
+    _user: crate::auth::AuthenticatedUser, // Require authentication to revoke tokens
+    Json(req): Json<RevokeTokenRequest>,
+) -> Result<Json<RevokeTokenResponse>, (StatusCode, String)> {
+    #[cfg(not(feature = "redis-integration"))]
+    {
+        return Err((
+            StatusCode::NOT_IMPLEMENTED,
+            "Token revocation requires Redis integration (enable redis-integration feature)"
+                .to_string(),
+        ));
+    }
+
+    #[cfg(feature = "redis-integration")]
+    {
+        let store = match crate::auth::TokenRevocationStore::get() {
+            Some(store) => store,
+            None => {
+                return Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Token revocation store not initialized".to_string(),
+                ));
+            }
+        };
+
+        // First validate the token to get its expiration
+        let claims = match crate::auth::validate_token_async(&req.token).await {
+            Ok(claims) => claims,
+            Err(_) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "Invalid token provided for revocation".to_string(),
+                ));
+            }
+        };
+
+        // Revoke the token
+        match store.revoke_token(&req.token, claims.exp).await {
+            Ok(_) => {
+                crate::security::log_action(
+                    "revoke_token",
+                    &format!("Revoked token for user: {}", claims.sub),
+                );
+                Ok(Json(RevokeTokenResponse {
+                    revoked: true,
+                    message: "Token successfully revoked".to_string(),
+                }))
+            }
+            Err(e) => {
+                tracing::error!("Failed to revoke token: {}", e);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to revoke token".to_string()))
+            }
+        }
+    }
+}
+
+/// Execute LangGraph workflow
+async fn run_langgraph(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    _user: crate::auth::AuthenticatedUser,
+    Json(req): Json<LangGraphRequest>,
+) -> Json<LangGraphResponse> {
+    // Authentication handled by AuthenticatedUser extractor
+
+    // Check rate limit - extract real IP
+    let ip = extract_ip(&headers, &addr);
+    tracing::debug!("Processing LangGraph request from IP: {} for input: {}", ip, req.input);
+    {
+        let mut rate_limits = state.rate_limits.lock().await;
+        if !check_rate_limit(&mut rate_limits, &ip) {
+            crate::security::log_action("langgraph", &format!("Rate limit exceeded for {}", ip));
+            return Json(LangGraphResponse {
+                result: "Rate limit exceeded".to_string(),
+                workflow_state: serde_json::json!({"error": "rate_limit_exceeded"}),
+            });
+        }
+    }
+
+    // Execute LangGraph workflow
+    // Create a new KG instance for the workflow (we'll need to refactor this for shared access)
+    let kg_for_workflow = crate::kg::KnowledgeGraph::new();
+    let kg_arc = std::sync::Arc::new(tokio::sync::Mutex::new(kg_for_workflow));
+    match crate::external::run_langgraph_workflow(&req.graph_definition, &req.input, kg_arc).await {
+        Ok(result) => {
+            crate::security::log_action(
+                "langgraph",
+                &format!("Workflow completed successfully for input: {}", req.input),
+            );
+            Json(LangGraphResponse {
+                result,
+                workflow_state: serde_json::json!({"status": "completed"}),
+            })
+        }
+        Err(e) => {
+            crate::security::log_action("langgraph", &format!("Workflow failed: {}", e));
+            Json(LangGraphResponse {
+                result: format!("Workflow execution failed: {}", e),
+                workflow_state: serde_json::json!({"error": e.to_string()}),
+            })
+        }
+    }
 }
 
 /// Check rate limit for IP
@@ -189,6 +348,8 @@ async fn parse_html(
     _user: crate::auth::AuthenticatedUser,
     Json(req): Json<ParseRequest>,
 ) -> Json<ParseResponse> {
+    let start_time = Instant::now();
+
     // Authentication handled by AuthenticatedUser extractor
 
     // Check rate limit - extract real IP
@@ -224,10 +385,12 @@ async fn parse_html(
                 "parse_html",
                 &format!("Parsed {} entities", entities.len()),
             );
+            tracing::debug!("Parse duration: {:?}", start_time.elapsed());
             Json(ParseResponse { title: data.title, entities })
         }
         Err(e) => {
             crate::security::log_action("parse_html", &format!("Parse error: {}", e));
+            tracing::debug!("Parse duration: {:?}", start_time.elapsed());
             Json(ParseResponse { title: None, entities: vec![] })
         }
     }
@@ -425,7 +588,7 @@ async fn browse_url(
         }
         Err(e) => {
             crate::security::log_action("browse_url", &format!("Browse error: {}", e));
-            Json(BrowseResponse { data: format!("Error browsing: {}", e), snapshot: None })
+            Json(BrowseResponse { data: format!("Error: {}", e), snapshot: None })
         }
     }
 }
@@ -612,5 +775,28 @@ mod tests {
         // Test fallback to connection address
         let headers3 = HeaderMap::new();
         assert_eq!(extract_ip(&headers3, &addr), "127.0.0.1");
+    }
+}
+/// Handler for Prometheus metrics endpoint
+#[axum::debug_handler]
+async fn metrics_endpoint() -> Result<String, (StatusCode, String)> {
+    #[cfg(feature = "observability")]
+    {
+        match crate::observability::get_metrics_handler() {
+            Ok(metrics) => Ok(metrics),
+            Err(e) => {
+                tracing::error!("Failed to generate metrics: {}", e);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate metrics".to_string()))
+            }
+        }
+    }
+
+    #[cfg(not(feature = "observability"))]
+    {
+        Err((
+            StatusCode::NOT_IMPLEMENTED,
+            "Observability feature not enabled. Enable with: cargo build --features observability"
+                .to_string(),
+        ))
     }
 }

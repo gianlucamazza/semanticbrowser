@@ -7,19 +7,22 @@ pub fn validate_html_input(html: &str) -> Result<(), &'static str> {
     if html.len() > 10_000_000 {
         return Err("HTML too large");
     }
+    let html_lower = html.to_lowercase();
     // Block script tags and other potentially dangerous elements, but allow JSON-LD
-    if (html.contains("<script") && !html.contains("application/ld+json"))
-        || html.contains("<iframe")
-        || html.contains("<object")
-        || html.contains("<embed")
+    let has_script = html_lower.contains("<script");
+    let has_json_ld = html_lower.contains("application/ld+json");
+    if (has_script && !has_json_ld)
+        || html_lower.contains("<iframe")
+        || html_lower.contains("<object")
+        || html_lower.contains("<embed")
     {
         return Err("Potentially malicious HTML: script or embed tags detected");
     }
     // Check for other malicious patterns
-    if html.contains("javascript:")
-        || html.contains("onload=")
-        || html.contains("onerror=")
-        || html.contains("eval(")
+    if html_lower.contains("javascript:")
+        || html_lower.contains("onload=")
+        || html_lower.contains("onerror=")
+        || html_lower.contains("eval(")
     {
         return Err("Potentially malicious HTML: dangerous attributes or functions detected");
     }
@@ -174,5 +177,49 @@ mod tests {
     fn test_sparql_validation() {
         assert!(validate_sparql_query("SELECT * WHERE { ?s ?p ?o }").is_ok());
         assert!(validate_sparql_query("DROP ALL").is_err());
+    }
+
+    #[test]
+    fn test_html_allows_json_ld_script() {
+        let html = r#"<html><head><script type="application/ld+json">{}</script></head></html>"#;
+        assert!(
+            validate_html_input(html).is_ok(),
+            "JSON-LD scripts should be allowed by the validator"
+        );
+    }
+
+    #[test]
+    fn test_html_rejects_inline_event_handler() {
+        let html = r#"<img src="test.png" onerror="alert('xss')" />"#;
+        assert!(validate_html_input(html).is_err(), "Inline event handlers must be rejected");
+    }
+
+    #[test]
+    fn test_html_case_insensitive_checks() {
+        assert!(
+            validate_html_input("<SCRIPT>alert(1)</SCRIPT>").is_err(),
+            "Uppercase script tag should be rejected"
+        );
+        let json_ld_upper = r#"<script TYPE="APPLICATION/LD+JSON">{}</script>"#;
+        assert!(
+            validate_html_input(json_ld_upper).is_ok(),
+            "JSON-LD script type should be treated case-insensitively"
+        );
+    }
+
+    #[test]
+    fn test_sparql_validation_handles_whitespace_and_case() {
+        assert!(
+            validate_sparql_query("   select * WHERE { ?s ?p ?o }").is_ok(),
+            "Leading whitespace with lowercase operation should still be accepted"
+        );
+        assert!(
+            validate_sparql_query("ask WHERE { ?s ?p ?o }").is_ok(),
+            "Lowercase ASK should be normalized"
+        );
+        assert!(
+            validate_sparql_query("/* comment */ drop DATASET").is_err(),
+            "Dangerous keywords inside comments should still trigger rejection"
+        );
     }
 }

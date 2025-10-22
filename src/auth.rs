@@ -18,6 +18,11 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
+#[cfg(feature = "redis-integration")]
+use redis::{AsyncCommands, Client};
+#[cfg(feature = "redis-integration")]
+use std::sync::Arc;
+
 /// JWT Claims structure
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
@@ -65,6 +70,62 @@ enum AuthState {
 }
 
 static JWT_STATE: OnceLock<AuthState> = OnceLock::new();
+
+/// Token revocation store for Redis-based token blacklisting
+#[cfg(feature = "redis-integration")]
+pub struct TokenRevocationStore {
+    client: Arc<Client>,
+}
+
+#[cfg(feature = "redis-integration")]
+static REVOCATION_STORE: OnceLock<TokenRevocationStore> = OnceLock::new();
+
+#[cfg(feature = "redis-integration")]
+impl TokenRevocationStore {
+    /// Create new token revocation store with Redis connection
+    pub async fn new(redis_url: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let client = Client::open(redis_url)?;
+        // Test connection
+        let mut conn = client.get_multiplexed_async_connection().await?;
+        let _: () = conn.set("test", "ok").await?;
+        let _: () = conn.del(&["test"]).await?;
+
+        Ok(Self { client: Arc::new(client) })
+    }
+
+    /// Revoke a token by storing it in Redis with expiration
+    pub async fn revoke_token(
+        &self,
+        token: &str,
+        expiration: i64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        let key = format!("revoked_token:{}", token);
+
+        // Store token with expiration (same as JWT expiration)
+        let _: () = conn.set_ex(key, "revoked", expiration as u64).await?;
+        Ok(())
+    }
+
+    /// Check if a token is revoked
+    pub async fn is_revoked(&self, token: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        let key = format!("revoked_token:{}", token);
+
+        let exists: bool = conn.exists(key).await?;
+        Ok(exists)
+    }
+
+    /// Get global revocation store instance
+    pub fn get() -> Option<&'static Self> {
+        REVOCATION_STORE.get()
+    }
+
+    /// Initialize global revocation store
+    pub fn init_global(store: TokenRevocationStore) {
+        let _ = REVOCATION_STORE.set(store);
+    }
+}
 
 impl JwtConfig {
     /// Initialize JWT configuration from environment variable
@@ -125,12 +186,33 @@ pub fn generate_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::E
     encode(&Header::default(), claims, &config.encoding_key)
 }
 
-/// Validate and decode JWT token
-pub fn validate_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+/// Validate and decode JWT token (async version)
+pub async fn validate_token_async(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
     let config = JwtConfig::get();
     let validation = Validation::default();
     let token_data = decode::<Claims>(token, &config.decoding_key, &validation)?;
+
+    // Check if token is revoked (only if Redis integration is enabled)
+    #[cfg(feature = "redis-integration")]
+    {
+        if let Some(store) = TokenRevocationStore::get() {
+            if store.is_revoked(token).await.unwrap_or(false) {
+                return Err(jsonwebtoken::errors::Error::from(
+                    jsonwebtoken::errors::ErrorKind::InvalidToken,
+                ));
+            }
+        }
+    }
+
     Ok(token_data.claims)
+}
+
+/// Validate and decode JWT token (sync wrapper for backward compatibility)
+pub fn validate_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    // For now, we'll use a simple approach - in production this should be handled better
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(validate_token_async(token))
+    })
 }
 
 /// Extract token from Authorization header
@@ -179,7 +261,7 @@ where
         let token = extract_token_from_header(auth_header).ok_or(AuthError::MissingToken)?;
 
         // Validate token and extract claims
-        let claims = validate_token(&token).map_err(|e| {
+        let claims = validate_token_async(&token).await.map_err(|e| {
             tracing::debug!("Token validation failed: {}", e);
             AuthError::InvalidToken
         })?;
@@ -251,15 +333,15 @@ mod tests {
         assert!(claims.exp > claims.iat);
     }
 
-    #[test]
-    fn test_token_generation_and_validation() {
+    #[tokio::test]
+    async fn test_token_generation_and_validation() {
         std::env::set_var("JWT_SECRET", "test-secret-key-that-is-long-enough-for-validation");
         JwtConfig::init().ok();
 
         let claims = Claims::new("testuser".to_string(), Some("user".to_string()));
         let token = generate_token(&claims).unwrap();
 
-        let decoded = validate_token(&token).unwrap();
+        let decoded = validate_token_async(&token).await.unwrap();
         assert_eq!(decoded.sub, "testuser");
         assert_eq!(decoded.role, Some("user".to_string()));
     }

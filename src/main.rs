@@ -89,6 +89,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     semantic_browser::auth::JwtConfig::init()
         .map_err(|e| format!("Failed to initialize JWT config: {}", e))?;
 
+    // Initialize Prometheus metrics if observability feature is enabled
+    #[cfg(feature = "observability")]
+    {
+        semantic_browser::observability::init_metrics()
+            .map_err(|e| format!("Failed to initialize metrics: {}", e))?;
+        tracing::info!("Observability metrics initialized");
+    }
+
     // Initialize NER model if configured
     semantic_browser::annotator::init_ner_model();
 
