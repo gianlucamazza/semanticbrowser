@@ -2,6 +2,7 @@ use crate::llm::provider::{
     LLMConfig, LLMError, LLMProvider, LLMResponse, LLMResult, Message, Role, TokenUsage, ToolCall,
 };
 use async_trait::async_trait;
+use futures_util::stream::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -75,6 +76,35 @@ struct OpenAIToolCall {
 struct OpenAIToolCallFunction {
     name: String,
     arguments: String,
+}
+
+/// OpenAI streaming event structure (SSE)
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+struct OpenAIStreamEvent {
+    object: String,
+    choices: Option<Vec<OpenAIStreamChoice>>,
+    created: Option<u64>,
+    model: Option<String>,
+}
+
+/// Choice in streaming response
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+struct OpenAIStreamChoice {
+    index: usize,
+    delta: OpenAIStreamDelta,
+    finish_reason: Option<String>,
+}
+
+/// Delta content in streaming choice
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+struct OpenAIStreamDelta {
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    role: Option<String>,
 }
 
 impl OpenAIProvider {
@@ -269,11 +299,118 @@ impl LLMProvider for OpenAIProvider {
 
     async fn stream_chat_completion(
         &self,
-        _messages: Vec<Message>,
-        _config: &LLMConfig,
+        messages: Vec<Message>,
+        config: &LLMConfig,
     ) -> LLMResult<tokio::sync::mpsc::Receiver<String>> {
-        // TODO: Implement streaming
-        Err(LLMError::Api("Streaming not implemented yet".to_string()))
+        let openai_messages = messages
+            .into_iter()
+            .map(|msg| OpenAIMessage {
+                role: match msg.role {
+                    Role::System => "system".to_string(),
+                    Role::User => "user".to_string(),
+                    Role::Assistant => "assistant".to_string(),
+                    Role::Tool => "assistant".to_string(),
+                },
+                content: msg.content,
+                tool_calls: None,
+            })
+            .collect::<Vec<_>>();
+
+        let request = OpenAIRequest {
+            model: config.model.clone(),
+            messages: openai_messages,
+            max_tokens: config.max_tokens,
+            temperature: Some(config.temperature),
+            tools: None,
+            stream: true,
+        };
+
+        let (tx, rx) = tokio::sync::mpsc::channel::<String>(100);
+
+        let client = self.client.clone();
+        let api_key = self.api_key.clone();
+        let base_url = self.base_url.clone();
+
+        tokio::spawn(async move {
+            let response = match client
+                .post(format!("{}/chat/completions", base_url))
+                .header("Authorization", format!("Bearer {}", api_key))
+                .header("Content-Type", "application/json")
+                .json(&request)
+                .send()
+                .await
+            {
+                Ok(resp) => resp,
+                Err(e) => {
+                    tracing::error!("OpenAI streaming request failed: {}", e);
+                    return;
+                }
+            };
+
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                tracing::error!("OpenAI streaming error response: {}", error_text);
+                return;
+            }
+
+            let mut byte_stream = response.bytes_stream();
+            let mut buffer = String::new();
+
+            while let Some(chunk_result) = byte_stream.next().await {
+                let chunk = match chunk_result {
+                    Ok(bytes) => bytes,
+                    Err(e) => {
+                        tracing::error!("Failed to read response chunk: {}", e);
+                        return;
+                    }
+                };
+
+                if let Ok(text) = String::from_utf8(chunk.to_vec()) {
+                    buffer.push_str(&text);
+
+                    while let Some(newline_pos) = buffer.find('\n') {
+                        let line = buffer[..newline_pos].trim().to_string();
+                        buffer = buffer[newline_pos + 1..].to_string();
+
+                        if line.is_empty() {
+                            continue;
+                        }
+
+                        if line == "[DONE]" {
+                            return;
+                        }
+
+                        if let Some(data) = line.strip_prefix("data: ") {
+                            match serde_json::from_str::<OpenAIStreamEvent>(data) {
+                                Ok(stream_event) => {
+                                    if let Some(choices) = stream_event.choices {
+                                        for choice in choices {
+                                            if let Some(content) = choice.delta.content {
+                                                if let Err(e) = tx.send(content).await {
+                                                    tracing::warn!("Failed to send token: {}", e);
+                                                    return;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::debug!(
+                                        "Failed to parse SSE event: {}. Data: {}",
+                                        e,
+                                        data
+                                    );
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    tracing::warn!("Failed to convert response chunk to UTF-8");
+                }
+            }
+        });
+
+        Ok(rx)
     }
 
     fn provider_name(&self) -> &str {
