@@ -31,7 +31,7 @@ axum = { version = "0.7", features = ["macros"] }
 pyo3 = { version = "0.27", optional = true }
 # TODO: Add pyo3-async-runtimes when version 0.27 is released
 # pyo3-async-runtimes = { version = "0.27", optional = true, features = ["tokio"] }
-rustls = "0.21"
+rustls = "0.23"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 sled = "0.34"
