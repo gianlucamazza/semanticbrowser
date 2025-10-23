@@ -21,7 +21,7 @@ harness = false
 
 [dependencies]
 html5ever = "0.26"
-scraper = "0.18"
+scraper = "0.24"
 oxigraph = "0.4"
 tract-core = "0.21"
 tract-onnx = { version = "0.21", optional = true }
