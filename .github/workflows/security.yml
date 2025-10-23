@@ -112,7 +112,7 @@ jobs:
       run: cargo tarpaulin --out Xml
 
     - name: Upload coverage to codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         file: ./cobertura.xml
         fail_ci_if_error: false
