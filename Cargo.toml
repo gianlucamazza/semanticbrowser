@@ -20,7 +20,7 @@ name = "parsing_benchmark"
 harness = false
 
 [dependencies]
-html5ever = "0.26"
+html5ever = "0.35"
 scraper = "0.18"
 oxigraph = "0.4"
 tract-core = "0.21"
