@@ -47,7 +47,7 @@ fmt-check: ## Check code formatting
 check: ## Run cargo check
 	cargo check
 
-# Docker
+# Docker Production
 docker-build: ## Build Docker image
 	./docker/scripts/docker-build.sh
 
@@ -68,6 +68,67 @@ docker-test-unit: ## Run unit tests in Docker
 
 docker-test-integration: ## Run integration tests in Docker
 	./docker/scripts/docker-test.sh --integration-only
+
+# Docker Development Environment (with Ollama, Redis, Hot-Reload)
+docker-dev-up: ## Start development environment with Ollama and Redis
+	./docker/scripts/docker-dev.sh up
+
+docker-dev-down: ## Stop development environment
+	./docker/scripts/docker-dev.sh down
+
+docker-dev-restart: ## Restart development environment
+	./docker/scripts/docker-dev.sh restart
+
+docker-dev-logs: ## Show development environment logs
+	./docker/scripts/docker-dev.sh logs
+
+docker-dev-logs-app: ## Show application logs only
+	./docker/scripts/docker-dev.sh logs semantic_browser
+
+docker-dev-status: ## Show status of all development services
+	./docker/scripts/docker-dev.sh status
+
+docker-dev-build: ## Rebuild development image
+	./docker/scripts/docker-dev.sh build
+
+docker-dev-rebuild: ## Force rebuild development image (no cache)
+	./docker/scripts/docker-dev.sh rebuild
+
+docker-dev-shell: ## Open shell in development container
+	./docker/scripts/docker-dev.sh shell
+
+docker-dev-redis: ## Open Redis CLI in development
+	./docker/scripts/docker-dev.sh redis-cli
+
+docker-dev-test: ## Run quick API tests in development
+	./docker/scripts/docker-dev.sh test
+
+docker-dev-health: ## Check health of all development services
+	./docker/scripts/docker-dev.sh health
+
+docker-dev-clean: ## Clean development environment (removes data)
+	./docker/scripts/docker-dev.sh clean
+
+docker-dev-clean-cache: ## Clean cargo cache in development
+	./docker/scripts/docker-dev.sh clean-cache
+
+# Ollama Management
+ollama-pull: ## Pull Ollama model (usage: make ollama-pull MODEL=llama3.2)
+	./docker/scripts/docker-dev.sh ollama-pull $(MODEL)
+
+ollama-list: ## List available Ollama models
+	./docker/scripts/docker-dev.sh ollama-list
+
+ollama-run: ## Run interactive Ollama chat (usage: make ollama-run MODEL=llama3.2)
+	./docker/scripts/docker-dev.sh ollama-run $(MODEL)
+
+ollama-rm: ## Remove Ollama model (usage: make ollama-rm MODEL=llama3.2)
+	./docker/scripts/docker-dev.sh ollama-rm $(MODEL)
+
+# Quick shortcuts for common development tasks
+dev: docker-dev-up ## Alias for docker-dev-up
+dev-logs: docker-dev-logs ## Alias for docker-dev-logs
+dev-shell: docker-dev-shell ## Alias for docker-dev-shell
 
 # Documentation
 docs: ## Generate documentation

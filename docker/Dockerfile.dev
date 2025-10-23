@@ -1,0 +1,118 @@
+# Development Dockerfile for Semantic Browser
+# Optimized for fast rebuilds and hot-reload development
+#
+# Features:
+# - cargo-watch for automatic rebuilds on file changes
+# - Full Rust toolchain with debugging symbols
+# - Mounted source code for hot-reload
+# - Cargo cache reuse for faster builds
+# - Development dependencies included
+
+# Use Rust official image with full toolchain
+FROM rust:1.84-slim
+
+# Install build dependencies and development tools
+RUN apt-get update && \
+    apt-get install -y \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        libclang-dev \
+        # Development tools
+        curl \
+        git \
+        vim \
+        # Debugging tools
+        gdb \
+        lldb \
+        # Python for browser automation examples
+        python3 \
+        python3-pip \
+        # Chromium for browser automation
+        chromium \
+        chromium-driver \
+        # Health check tools
+        netcat-openbsd \
+        # CA certificates
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo-watch for hot reload
+RUN cargo install cargo-watch
+
+# Install Python dependencies for browser automation
+RUN pip install --no-cache-dir --break-system-packages \
+    requests \
+    beautifulsoup4 \
+    lxml \
+    playwright \
+    || true
+
+# Set environment for pyo3 compatibility
+ENV PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+
+# Set environment for Chromium
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROME_PATH=/usr/bin/chromium
+
+# Set working directory
+WORKDIR /app
+
+# Copy Cargo files
+COPY Cargo.toml Cargo.lock ./
+COPY benches/ ./benches/
+
+# Create src directory structure
+RUN mkdir -p src/bin
+
+# Pre-download dependencies (this layer will be cached)
+# Create dummy files to satisfy cargo
+RUN echo "fn main() {}" > src/main.rs && \
+    echo "pub fn dummy() {}" > src/lib.rs && \
+    echo "fn main() {}" > src/bin/semantic_browser_mcp.rs
+
+# Build dependencies with all features (dev configuration)
+# This layer is cached and only rebuilds if Cargo.toml changes
+RUN cargo build --all-features
+
+# Clean up dummy files
+RUN rm -rf src
+
+# Copy actual source code (will be mounted in docker-compose for hot reload)
+# This COPY is just for initial build
+COPY src ./src
+
+# Build the actual application with all features and debug symbols
+# In development, we want debug builds for faster compilation
+RUN cargo build --all-features
+
+# Create data directory
+RUN mkdir -p /data
+
+# Expose port
+EXPOSE 3000
+
+# Environment variables
+ENV RUST_LOG=debug
+ENV RUST_BACKTRACE=1
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
+
+# Development entrypoint with cargo-watch
+# This watches for file changes and automatically rebuilds
+# Note: The --why flag shows what triggered the rebuild
+# Note: The --no-gitignore flag ensures all files are watched
+CMD ["cargo", "watch", \
+     "-x", "build --all-features", \
+     "-x", "run --all-features --bin semantic_browser_agent", \
+     "--why", \
+     "--watch", "src", \
+     "--watch", "Cargo.toml"]
+
+# Alternative: Run without hot-reload (for debugging)
+# CMD ["cargo", "run", "--all-features", "--bin", "semantic_browser_agent"]
+
+# Alternative: Run pre-built binary (faster startup, no rebuild)
+# CMD ["/app/target/debug/semantic_browser_agent"]

@@ -28,12 +28,31 @@ A Rust-based semantic browser designed for the new generation of AI agents, enab
 
 ## 🚀 Quick Start
 
+### Development Environment (Recommended)
+
+Complete development stack with Ollama (local LLM), Redis, and hot-reload:
+
 ```bash
 # Clone repository
 git clone https://github.com/gianlucamazza/semanticbrowser.git
 cd semanticbrowser
 
-# Start with Docker (recommended)
+# Start dev environment (Ollama + Redis + App)
+make docker-dev-up
+
+# Pull Ollama model (no API keys needed!)
+make ollama-pull MODEL=llama3.2
+
+# Test the API
+curl http://localhost:3000/
+```
+
+See [Docker Development Guide](docs/developer-guide/docker-development.md) for complete setup.
+
+### Production Deployment
+
+```bash
+# Start with Docker (production)
 cp .env.example .env
 ./docker/scripts/docker-up.sh --build -d
 
@@ -99,9 +118,30 @@ cargo build --all-features
 
 ## Docker
 
-Complete Docker setup and deployment guide available at **[Docker Setup](user-guide/docker-setup.md)**.
+### Development Environment
 
-### Quick Docker Commands
+Complete development stack with Ollama, Redis, and hot-reload:
+
+```bash
+# Start dev environment
+make docker-dev-up
+
+# Pull Ollama models (no API keys!)
+make ollama-pull MODEL=llama3.2
+
+# View logs
+make docker-dev-logs
+
+# Open shell
+make docker-dev-shell
+
+# Stop
+make docker-dev-down
+```
+
+See [Docker Development Guide](docs/developer-guide/docker-development.md) and [Quick Start README](docker/README.dev.md).
+
+### Production Deployment
 
 ```bash
 # Build and start
@@ -116,6 +156,8 @@ docker-compose logs -f
 # Stop
 docker-compose down
 ```
+
+Complete Docker setup at **[Docker Setup](user-guide/docker-setup.md)**.
 
 ## Examples
 

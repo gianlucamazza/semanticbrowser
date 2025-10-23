@@ -26,6 +26,7 @@ config/.env
 # Data
 data/kg/*
 !data/kg/README.md
+data/kg-dev/
 data/browser-data/
 models/*
 !models/README.md
