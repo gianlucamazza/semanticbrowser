@@ -8,8 +8,8 @@
 # - Cargo cache reuse for faster builds
 # - Development dependencies included
 
-# Use Rust official image with full toolchain
-FROM rust:1.84-slim
+# Use Rust nightly for edition2024 support (required by backon dependency)
+FROM rustlang/rust:nightly-slim
 
 # Install build dependencies and development tools
 RUN apt-get update && \
@@ -71,9 +71,9 @@ RUN echo "fn main() {}" > src/main.rs && \
     echo "pub fn dummy() {}" > src/lib.rs && \
     echo "fn main() {}" > src/bin/semantic_browser_mcp.rs
 
-# Build dependencies with all features (dev configuration)
+# Build dependencies with development features (excluding telemetry to avoid OTLP connection issues)
 # This layer is cached and only rebuilds if Cargo.toml changes
-RUN cargo build --all-features
+RUN cargo build --features browser-automation,redis-integration,onnx-integration
 
 # Clean up dummy files
 RUN rm -rf src
@@ -82,9 +82,10 @@ RUN rm -rf src
 # This COPY is just for initial build
 COPY src ./src
 
-# Build the actual application with all features and debug symbols
+# Build the actual application with development features and debug symbols
 # In development, we want debug builds for faster compilation
-RUN cargo build --all-features
+# Excluding telemetry to avoid OTLP endpoint connection issues
+RUN cargo build --features browser-automation,redis-integration,onnx-integration
 
 # Create data directory
 RUN mkdir -p /data
@@ -104,9 +105,10 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
 # This watches for file changes and automatically rebuilds
 # Note: The --why flag shows what triggered the rebuild
 # Note: The --no-gitignore flag ensures all files are watched
+# Using specific features instead of --all-features to avoid telemetry OTLP connection issues
 CMD ["cargo", "watch", \
-     "-x", "build --all-features", \
-     "-x", "run --all-features --bin semantic_browser_agent", \
+     "-x", "build --features browser-automation,redis-integration,onnx-integration", \
+     "-x", "run --features browser-automation,redis-integration,onnx-integration --bin semantic_browser_agent", \
      "--why", \
      "--watch", "src", \
      "--watch", "Cargo.toml"]
