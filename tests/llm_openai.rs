@@ -54,6 +54,8 @@ mod tests {
     // #[cfg(feature = "integration-tests")]
     #[allow(clippy::disallowed_methods)]
     mod integration_tests {
+        use semantic_browser::llm::{LLMConfig, LLMProvider, Message, OpenAIProvider};
+        use std::sync::Arc;
 
         #[tokio::test]
         async fn test_openai_health_check() {
@@ -254,7 +256,7 @@ mod tests {
 
     // Unit tests for SSE parsing logic
     mod stream_parsing_tests {
-        use super::*;
+        // No imports needed for these unit tests
 
         #[test]
         fn test_sse_data_line_parsing() {

@@ -8,7 +8,11 @@
 //! - Error handling
 
 #[cfg(test)]
+#[allow(clippy::assertions_on_constants)]
 mod tests {
+    // These are placeholder tests for future implementation
+    // The assert!(true) statements are intentional markers
+
     // Agent tests
     #[test]
     fn test_agent_creation() {
