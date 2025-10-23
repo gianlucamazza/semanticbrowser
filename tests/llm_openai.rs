@@ -55,7 +55,6 @@ mod tests {
     #[allow(clippy::disallowed_methods)]
     mod integration_tests {
         use semantic_browser::llm::{LLMConfig, LLMProvider, Message, OpenAIProvider};
-        use std::sync::Arc;
 
         #[tokio::test]
         async fn test_openai_health_check() {
