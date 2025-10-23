@@ -23,7 +23,7 @@ harness = false
 html5ever = "0.26"
 scraper = "0.18"
 oxigraph = "0.4"
-tract-core = "0.21"
+tract-core = "0.22"
 tract-onnx = { version = "0.21", optional = true }
 tokenizers = { version = "0.20", optional = true }
 tokio = { version = "1", features = ["full"] }
