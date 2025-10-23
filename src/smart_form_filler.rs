@@ -2,6 +2,10 @@
 //!
 //! Intelligent form filling with automatic field discovery.
 //! No hardcoded selectors required - uses semantic analysis.
+
+// Form analyzer types are only used when browser-automation feature is enabled
+#[cfg(feature = "browser-automation")]
+use crate::form_analyzer::{FieldDescription, FieldType, FormAnalyzer, FormDescription};
 #[cfg(feature = "browser-automation")]
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};

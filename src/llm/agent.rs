@@ -7,10 +7,17 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{info, warn};
 
+// RwLock is only used with onnx-integration feature for KG and predictor fields
+#[cfg(feature = "onnx-integration")]
+use std::sync::RwLock;
+
 #[cfg(feature = "onnx-integration")]
 use crate::kg::KnowledgeGraph;
 #[cfg(feature = "onnx-integration")]
 use crate::ml::inference::LinkPredictor;
+
+// serde_json::Value is used in tool execution methods
+use serde_json::Value;
 
 /// Task to be executed by the agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
