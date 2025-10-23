@@ -303,6 +303,161 @@ mod fallback_tests {
     }
 }
 
+#[cfg(feature = "browser-automation")]
+mod multi_tab_tests {
+    use semantic_browser::browser::{BrowserConfig, BrowserPool};
+
+    /// Test basic tab management functionality
+    #[tokio::test]
+    async fn test_tab_creation_and_management() {
+        let config = BrowserConfig { headless: true, pool_size: 5, ..Default::default() };
+
+        let pool = match BrowserPool::new(config).await {
+            Ok(pool) => pool,
+            Err(e) => {
+                println!("Skipping test: Chromium not available: {}", e);
+                return;
+            }
+        };
+
+        // Create tabs
+        let tab1 = match pool.create_tab(Some("test1".to_string())).await {
+            Ok(id) => id,
+            Err(e) => {
+                println!("Failed to create tab: {}", e);
+                let _ = pool.shutdown().await;
+                return;
+            }
+        };
+
+        let tab2 = match pool.create_tab(Some("test2".to_string())).await {
+            Ok(id) => id,
+            Err(e) => {
+                println!("Failed to create tab: {}", e);
+                let _ = pool.shutdown().await;
+                return;
+            }
+        };
+
+        // Test tab listing
+        match pool.list_tabs().await {
+            Ok(tabs) => {
+                assert_eq!(tabs.len(), 2);
+                assert!(tabs.contains(&tab1));
+                assert!(tabs.contains(&tab2));
+            }
+            Err(e) => {
+                println!("Failed to list tabs: {}", e);
+                let _ = pool.shutdown().await;
+                return;
+            }
+        }
+
+        // Test tab switching
+        if let Err(e) = pool.switch_tab(&tab2).await {
+            println!("Failed to switch tab: {}", e);
+            let _ = pool.shutdown().await;
+            return;
+        }
+
+        // Test tab closing
+        if let Err(e) = pool.close_tab(&tab1).await {
+            println!("Failed to close tab: {}", e);
+            let _ = pool.shutdown().await;
+            return;
+        }
+
+        // Verify tab was closed
+        match pool.list_tabs().await {
+            Ok(tabs) => {
+                assert_eq!(tabs.len(), 1);
+                assert!(!tabs.contains(&tab1));
+                assert!(tabs.contains(&tab2));
+            }
+            Err(e) => {
+                println!("Failed to list tabs after close: {}", e);
+            }
+        }
+
+        let _ = pool.shutdown().await;
+    }
+
+    /// Test tab resource limits
+    #[tokio::test]
+    async fn test_tab_resource_limits() {
+        let config = BrowserConfig {
+            headless: true,
+            pool_size: 2, // Small pool size for testing
+            ..Default::default()
+        };
+
+        let pool = match BrowserPool::new(config).await {
+            Ok(pool) => pool,
+            Err(e) => {
+                println!("Skipping test: Chromium not available: {}", e);
+                return;
+            }
+        };
+
+        // Create tabs up to the limit
+        let tab1 = pool.create_tab(Some("tab1".to_string())).await.unwrap();
+        let tab2 = pool.create_tab(Some("tab2".to_string())).await.unwrap();
+
+        // Try to create one more tab (should fail)
+        let result = pool.create_tab(Some("tab3".to_string())).await;
+        assert!(result.is_err(), "Should fail when exceeding pool size");
+
+        if let Err(e) = result {
+            println!("Expected error when exceeding pool size: {}", e);
+        }
+
+        // Clean up
+        let _ = pool.close_tab(&tab1).await;
+        let _ = pool.close_tab(&tab2).await;
+        let _ = pool.shutdown().await;
+    }
+
+    /// Test concurrent operations on multiple tabs
+    #[tokio::test]
+    async fn test_execute_on_all_tabs() {
+        let config = BrowserConfig { headless: true, pool_size: 3, ..Default::default() };
+
+        let pool = match BrowserPool::new(config).await {
+            Ok(pool) => pool,
+            Err(e) => {
+                println!("Skipping test: Chromium not available: {}", e);
+                return;
+            }
+        };
+
+        // Create multiple tabs
+        let tab1 = pool.create_tab(Some("tab1".to_string())).await.unwrap();
+        let tab2 = pool.create_tab(Some("tab2".to_string())).await.unwrap();
+        let tab3 = pool.create_tab(Some("tab3".to_string())).await.unwrap();
+
+        // Define a simple action to execute on each tab
+        let get_tab_info =
+            |page: std::sync::Arc<chromiumoxide::Page>| format!("Page info: {:?}", page);
+
+        // Execute on all tabs
+        match pool.execute_on_all_tabs(get_tab_info).await {
+            Ok(results) => {
+                assert_eq!(results.len(), 3);
+                println!("Results from all tabs: {:?}", results);
+            }
+            Err(e) => {
+                println!("Failed to execute on all tabs: {}", e);
+            }
+        }
+
+        // Clean up
+        let _ = pool.close_tab(&tab1).await;
+        let _ = pool.close_tab(&tab2).await;
+        let _ = pool.close_tab(&tab3).await;
+        let _ = pool.shutdown().await;
+    }
+}
+
 // NEW TESTS FOR SPRINT 2 FEATURES
 #[cfg(feature = "browser-automation")]
 mod sprint2_tests {

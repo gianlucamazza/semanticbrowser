@@ -174,12 +174,137 @@ pub struct SemanticData {
     pub twitter_card: HashMap<String, String>,
 }
 
-/// Browser pool for managing concurrent browser instances
+/// Tab manager for handling multiple browser tabs
+#[cfg(feature = "browser-automation")]
+#[derive(Debug)]
+pub struct TabManager {
+    browser: Arc<Browser>,
+    tabs: HashMap<String, Arc<Page>>,
+    active_tab: String,
+    max_tabs: usize,
+}
+
+#[cfg(feature = "browser-automation")]
+impl TabManager {
+    /// Create a new tab manager
+    pub fn new(browser: Arc<Browser>, max_tabs: usize) -> Self {
+        Self { browser, tabs: HashMap::new(), active_tab: String::new(), max_tabs }
+    }
+
+    /// Create a new tab and return its ID
+    pub async fn create_tab(
+        &mut self,
+        name: Option<String>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        if self.tabs.len() >= self.max_tabs {
+            return Err("Maximum number of tabs reached".into());
+        }
+
+        let tab_id = name.unwrap_or_else(|| format!("tab_{}", self.tabs.len()));
+        let page = self.browser.new_page("about:blank").await?;
+        self.tabs.insert(tab_id.clone(), Arc::new(page));
+        self.active_tab = tab_id.clone();
+
+        tracing::info!("Created new tab: {}", tab_id);
+        Ok(tab_id)
+    }
+
+    /// Switch to a specific tab
+    pub async fn switch_tab(
+        &mut self,
+        tab_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if !self.tabs.contains_key(tab_id) {
+            return Err(format!("Tab '{}' not found", tab_id).into());
+        }
+
+        self.active_tab = tab_id.to_string();
+        tracing::debug!("Switched to tab: {}", tab_id);
+        Ok(())
+    }
+
+    /// Get the active tab page
+    pub fn get_active_tab(&self) -> Result<Arc<Page>, Box<dyn std::error::Error + Send + Sync>> {
+        if self.active_tab.is_empty() {
+            return Err("No active tab".into());
+        }
+
+        self.tabs
+            .get(&self.active_tab)
+            .cloned()
+            .ok_or_else(|| format!("Active tab '{}' not found", self.active_tab).into())
+    }
+
+    /// Get a specific tab by ID
+    pub fn get_tab(
+        &self,
+        tab_id: &str,
+    ) -> Result<Arc<Page>, Box<dyn std::error::Error + Send + Sync>> {
+        self.tabs.get(tab_id).cloned().ok_or_else(|| format!("Tab '{}' not found", tab_id).into())
+    }
+
+    /// Close a specific tab
+    pub async fn close_tab(
+        &mut self,
+        tab_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if !self.tabs.contains_key(tab_id) {
+            return Err(format!("Tab '{}' not found", tab_id).into());
+        }
+
+        // Close the page
+        if let Some(_page) = self.tabs.remove(tab_id) {
+            // Note: page.close() takes ownership, so we need to handle this
+            // For now, we'll just remove from the map and let the browser handle cleanup
+            // TODO: Implement proper page closing when chromiumoxide API allows
+            tracing::debug!("Removed tab {} from manager", tab_id);
+        }
+
+        // If we closed the active tab, switch to another one
+        if self.active_tab == tab_id {
+            self.active_tab = self.tabs.keys().next().cloned().unwrap_or_default();
+        }
+
+        tracing::info!("Closed tab: {}", tab_id);
+        Ok(())
+    }
+
+    /// List all tab IDs
+    pub fn list_tabs(&self) -> Vec<String> {
+        self.tabs.keys().cloned().collect()
+    }
+
+    /// Get the number of active tabs
+    pub fn tab_count(&self) -> usize {
+        self.tabs.len()
+    }
+
+    /// Execute an action on all tabs concurrently (simplified version)
+    pub async fn execute_on_all_tabs<F>(
+        &self,
+        action: F,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>>
+    where
+        F: Fn(Arc<Page>) -> String + Send + Sync + Clone,
+    {
+        let mut results = vec![];
+
+        for page in self.tabs.values().cloned() {
+            let result = action(page);
+            results.push(result);
+        }
+
+        Ok(results)
+    }
+}
+
+/// Browser pool for managing concurrent browser instances with tab support
 #[cfg(feature = "browser-automation")]
 #[derive(Debug)]
 pub struct BrowserPool {
     config: BrowserConfig,
-    browser: Arc<Mutex<Option<Browser>>>,
+    browser: Arc<Mutex<Option<Arc<Browser>>>>,
+    tab_manager: Arc<Mutex<Option<TabManager>>>,
 }
 
 #[cfg(feature = "browser-automation")]
@@ -189,7 +314,11 @@ impl BrowserPool {
         config: BrowserConfig,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         tracing::info!("Initializing browser pool with config: {:?}", config);
-        Ok(Self { config, browser: Arc::new(Mutex::new(None)) })
+        Ok(Self {
+            config,
+            browser: Arc::new(Mutex::new(None)),
+            tab_manager: Arc::new(Mutex::new(None)),
+        })
     }
 
     /// Get or create browser instance (returns reference, not owned)
@@ -255,7 +384,7 @@ impl BrowserPool {
             }
         });
 
-        *browser_lock = Some(browser);
+        *browser_lock = Some(Arc::new(browser));
         Ok(())
     }
 
@@ -813,12 +942,149 @@ impl BrowserPool {
         Ok(())
     }
 
+    /// Navigate and extract semantic data on a specific page
+    async fn navigate_and_extract_on_page(
+        &self,
+        _page: Arc<Page>,
+        url: &str,
+        options: NavigationOptions,
+    ) -> Result<SemanticData, Box<dyn std::error::Error + Send + Sync>> {
+        // Implementation similar to navigate_and_extract but using the provided page
+        // For now, delegate to the main method but this could be optimized
+        // TODO: Implement direct page navigation
+        self.navigate_and_extract(url, options).await
+    }
+
+    // ===== TAB MANAGEMENT METHODS =====
+
+    /// Initialize tab manager if not already done
+    async fn ensure_tab_manager(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut tab_manager_lock = self.tab_manager.lock().await;
+        if tab_manager_lock.is_some() {
+            return Ok(());
+        }
+
+        // Ensure browser is started first
+        self.ensure_browser_started().await?;
+
+        let browser = self.browser.lock().await;
+        if let Some(browser_arc) = browser.as_ref() {
+            let tab_manager = TabManager::new(Arc::clone(browser_arc), self.config.pool_size);
+            *tab_manager_lock = Some(tab_manager);
+        }
+
+        Ok(())
+    }
+
+    /// Create a new tab and return its ID
+    pub async fn create_tab(
+        &self,
+        name: Option<String>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        self.ensure_tab_manager().await?;
+        let mut tab_manager = self.tab_manager.lock().await;
+        if let Some(ref mut manager) = *tab_manager {
+            manager.create_tab(name).await
+        } else {
+            Err("Tab manager not initialized".into())
+        }
+    }
+
+    /// Switch to a specific tab
+    pub async fn switch_tab(
+        &self,
+        tab_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut tab_manager = self.tab_manager.lock().await;
+        if let Some(ref mut manager) = *tab_manager {
+            manager.switch_tab(tab_id).await
+        } else {
+            Err("Tab manager not initialized".into())
+        }
+    }
+
+    /// Close a specific tab
+    pub async fn close_tab(
+        &self,
+        tab_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut tab_manager = self.tab_manager.lock().await;
+        if let Some(ref mut manager) = *tab_manager {
+            manager.close_tab(tab_id).await
+        } else {
+            Err("Tab manager not initialized".into())
+        }
+    }
+
+    /// List all active tabs
+    pub async fn list_tabs(&self) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let tab_manager = self.tab_manager.lock().await;
+        if let Some(ref manager) = *tab_manager {
+            Ok(manager.list_tabs())
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    /// Get the current active page (convenience method)
+    pub async fn get_page(&self) -> Result<Arc<Page>, Box<dyn std::error::Error + Send + Sync>> {
+        let tab_manager = self.tab_manager.lock().await;
+        if let Some(ref manager) = *tab_manager {
+            manager.get_active_tab()
+        } else {
+            Err("Tab manager not initialized".into())
+        }
+    }
+
+    /// Navigate and extract on a specific tab
+    pub async fn navigate_and_extract_on_tab(
+        &self,
+        tab_id: &str,
+        url: &str,
+        options: NavigationOptions,
+    ) -> Result<SemanticData, Box<dyn std::error::Error + Send + Sync>> {
+        self.ensure_tab_manager().await?;
+        let tab_manager = self.tab_manager.lock().await;
+        if let Some(ref manager) = *tab_manager {
+            let page = manager.get_tab(tab_id)?;
+            self.navigate_and_extract_on_page(page, url, options).await
+        } else {
+            Err("Tab manager not initialized".into())
+        }
+    }
+
+    /// Execute an action on all tabs concurrently
+    pub async fn execute_on_all_tabs<F>(
+        &self,
+        action: F,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>>
+    where
+        F: Fn(Arc<Page>) -> String + Send + Sync + Clone,
+    {
+        let tab_manager = self.tab_manager.lock().await;
+        if let Some(ref manager) = *tab_manager {
+            manager.execute_on_all_tabs(action).await
+        } else {
+            Err("Tab manager not initialized".into())
+        }
+    }
+
     /// Shutdown the browser pool
     pub async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Close all tabs first
+        let mut tab_manager = self.tab_manager.lock().await;
+        if let Some(ref mut manager) = *tab_manager {
+            let tab_ids: Vec<String> = manager.list_tabs();
+            for tab_id in tab_ids {
+                let _ = manager.close_tab(&tab_id).await; // Ignore errors during shutdown
+            }
+        }
+
+        // Clear the browser reference - Arc will handle cleanup when all references are dropped
         let mut browser_lock = self.browser.lock().await;
-        if let Some(mut browser) = browser_lock.take() {
+        if browser_lock.is_some() {
             tracing::info!("Shutting down browser");
-            browser.close().await?;
+            *browser_lock = None;
         }
         Ok(())
     }

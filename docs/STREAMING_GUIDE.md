@@ -8,9 +8,10 @@ This guide covers how to use real-time token streaming with the Semantic Browser
 2. [Why Streaming?](#why-streaming)
 3. [Getting Started](#getting-started)
 4. [OpenAI Streaming](#openai-streaming)
-5. [Handling Streams](#handling-streams)
-6. [Best Practices](#best-practices)
-7. [Troubleshooting](#troubleshooting)
+5. [Anthropic Streaming](#anthropic-streaming)
+6. [Handling Streams](#handling-streams)
+7. [Best Practices](#best-practices)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -25,11 +26,13 @@ Streaming allows you to receive LLM responses token-by-token as they are generat
 
 ### Supported Providers
 
-| Provider | Status | Method |
-|----------|--------|--------|
-| OpenAI | ✅ Implemented | `stream_chat_completion()` |
-| Anthropic | 🔄 In Progress | Coming soon |
-| Ollama | ⏳ Planned | Future release |
+| Provider | Text Streaming | Vision Streaming |
+|----------|----------------|------------------|
+| OpenAI | ✅ Implemented (`stream_chat_completion`) | ❌ Not supported |
+| Anthropic | ✅ Implemented (`stream_chat_completion`) | ❌ Not supported |
+| Ollama | ⏳ Planned | ⏳ Planned |
+
+**Note**: Vision models (GPT-4V, Claude 3 Vision) do NOT support streaming in current implementation. Use `vision_chat_completion()` for non-streaming vision requests.
 
 ---
 
@@ -493,16 +496,78 @@ impl LLMProvider for OpenAIProvider {
 
 ---
 
+## Vision Models (Non-Streaming)
+
+While streaming is not currently supported for vision models, you can still use vision capabilities for image analysis:
+
+### OpenAI Vision Example
+
+```rust
+use semantic_browser::llm::{OpenAIProvider, LLMConfig, Message};
+
+let provider = OpenAIProvider::new(api_key);
+let config = LLMConfig {
+    model: "gpt-4o".to_string(),  // GPT-4o supports vision
+    ..Default::default()
+};
+
+// Create message with image
+let message = Message::user_with_image(
+    "Describe this image".to_string(),
+    "https://example.com/image.jpg".to_string()
+);
+
+// Non-streaming vision request
+let response = provider.vision_chat_completion(vec![message], &config).await?;
+println!("Description: {}", response.content);
+```
+
+### Anthropic Vision Example
+
+```rust
+use semantic_browser::llm::{AnthropicProvider, LLMConfig, Message, ContentBlock};
+
+let provider = AnthropicProvider::new(api_key);
+let config = LLMConfig {
+    model: "claude-3-opus-20240229".to_string(),  // Claude 3 supports vision
+    ..Default::default()
+};
+
+// Create vision message with content blocks
+let message = Message::user_vision(vec![
+    ContentBlock::Text("What's in this image?".to_string()),
+    ContentBlock::Image(ImageContent {
+        image_url: ImageSource::Url("https://example.com/image.jpg".to_string())
+    })
+]);
+
+let response = provider.vision_chat_completion(vec![message], &config).await?;
+println!("Analysis: {}", response.content);
+```
+
+**Why No Vision Streaming?**
+- Vision models process images holistically before generating text
+- Image analysis requires complete image encoding
+- Token generation starts only after image processing completes
+- Streaming would not provide meaningful benefits for initial processing phase
+
+**Recommended Approach**:
+- Use non-streaming `vision_chat_completion()` for vision requests
+- Use streaming for follow-up text-only questions
+- Combine vision analysis with text streaming in multi-turn conversations
+
+---
+
 ## Future Enhancements
 
 - [ ] Streaming with tools (function calling)
-- [ ] Streaming with vision models
-- [ ] Anthropic streaming support
+- [x] Anthropic streaming support ✅ **Completed**
 - [ ] Ollama streaming support
-- [ ] Token validation
+- [ ] Vision streaming (experimental, limited benefits)
+- [ ] Token validation and filtering
 - [ ] Cost estimation during streaming
 - [ ] Metrics/observability integration
-- [ ] Multiple stream merging
+- [ ] Multiple stream merging and multiplexing
 
 ---
 

@@ -5,7 +5,99 @@ All notable changes to the Semantic Browser project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.3] - 2025-01-23
+
+### Fixed - Documentation Validation & Corrections
+
+#### Documentation Corrections
+- **Authentication Examples**: Updated all example scripts to use dynamic JWT token generation
+  - `docs/user-guide/examples/parse_html.sh` now generates tokens correctly
+  - `docs/user-guide/examples/query_kg.sh` now includes proper auth flow
+  - Added error handling and prerequisite checks
+- **Environment Variables**: Added missing ML configuration variables to `.env.example`
+  - NER tokenizer and labels configuration
+  - KG embedding model configuration (entity/relation nodes)
+  - OpenTelemetry service name
+  - All ML inference parameters documented
+- **Browser Automation Limitations**: Clarified chromiumoxide 0.7 limitations
+  - `BLOCK_ADS` only uses `--disable-background-networking` flag
+  - `BLOCK_IMAGES` not yet implemented in chromiumoxide 0.7
+  - Added workarounds and production recommendations
+- **API Documentation**: Enhanced JWT authentication section
+  - Added security prerequisites and warnings
+  - Included complete token generation workflow
+  - Documented token expiration and rotation
+- **Streaming Guide**: Added vision model limitations and examples
+  - Clarified that vision models do NOT support streaming
+  - Added OpenAI and Anthropic vision examples
+  - Explained technical reasons for no vision streaming
+
+#### New Documentation
+- **ML Configuration Guide** (`docs/reference/ml-configuration.md`)
+  - Complete NER configuration guide
+  - Knowledge Graph ML inference setup
+  - Model format requirements and examples
+  - Troubleshooting section
+  - Best practices for production use
+
+### Changed
+- Updated `STREAMING_GUIDE.md` to reflect Anthropic streaming as completed
+- Improved error messages in example scripts
+- Enhanced inline documentation for configuration options
+
+---
+
+## [0.1.2] - 2025-01-22
+
+### Added - Vision & Multi-Tab Features
+
+#### LLM & Vision Integration
+- **Multi-Provider LLM Support** (`src/llm/`)
+  - OpenAI GPT models with vision capabilities (GPT-4V, GPT-4o)
+  - Anthropic Claude models with vision support (Claude 3)
+  - Ollama local model integration
+  - Unified provider interface with async traits
+  - Content blocks supporting text and images
+  - Streaming responses for real-time interaction
+  - Tool/function calling for agent workflows
+- **Vision Model Integration** (`src/llm/provider.rs`)
+  - `ContentBlock` enum for text and image content
+  - `ImageSource` enum supporting URLs and base64 data
+  - `MessageContent` for backward-compatible message handling
+  - Vision-enabled chat completion methods
+  - Base64 image encoding support
+- **Vision Example** (`examples/vision_example.rs`)
+  - Demonstrates image analysis with OpenAI and Anthropic
+  - Base64 image encoding and API usage
+  - Error handling for vision operations
+
+#### Browser Automation Enhancements
+- **Multi-Tab Orchestration** (`src/browser.rs`)
+  - `TabManager` struct for tab lifecycle management
+  - `BrowserPool` extensions with multi-tab API
+  - Concurrent tab operations with resource limits
+  - Tab creation, switching, and cleanup methods
+  - Resource pooling for efficient browser usage
+- **Multi-Tab Example** (`examples/multi_tab_example.rs`)
+  - Demonstrates concurrent tab workflows
+  - Tab lifecycle management and cleanup
+  - Resource limit testing and error handling
+
+#### Testing & Quality
+- **Comprehensive Test Suite**
+  - Unit tests for vision message creation and formatting
+  - Multi-tab functionality tests with resource limits
+  - Integration tests for LLM providers
+  - Browser automation test coverage
+- **Documentation Updates**
+  - Updated architecture diagram with LLM and browser components
+  - Enhanced API documentation for new features
+  - Comprehensive changelog with feature details
+
+#### Dependencies
+- Added `base64 0.22` for image encoding in vision models
+
+## [0.1.0] - 2025-01-15
 
 ### Added - 2025 Best Practices Implementation
 
@@ -71,6 +163,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable log levels per module
   - JSON logging support for production deployments
 
+#### LLM & Vision Integration
+- **Multi-Provider LLM Support** (`src/llm/`)
+  - OpenAI GPT models with vision capabilities (GPT-4V, GPT-4o)
+  - Anthropic Claude models with vision support (Claude 3)
+  - Ollama local model integration
+  - Unified provider interface with async traits
+  - Content blocks supporting text and images
+  - Streaming responses for real-time interaction
+  - Tool/function calling for agent workflows
+- **Vision Model Integration** (`src/llm/provider.rs`)
+  - `ContentBlock` enum for text and image content
+  - `ImageSource` enum supporting URLs and base64 data
+  - `MessageContent` for backward-compatible message handling
+  - Vision-enabled chat completion methods
+  - Base64 image encoding support
+- **Vision Example** (`examples/vision_example.rs`)
+  - Demonstrates image analysis with OpenAI and Anthropic
+  - Base64 image encoding and API usage
+  - Error handling for vision operations
+
+#### Browser Automation Enhancements
+- **Multi-Tab Orchestration** (`src/browser.rs`)
+  - `TabManager` struct for tab lifecycle management
+  - `BrowserPool` extensions with multi-tab API
+  - Concurrent tab operations with resource limits
+  - Tab creation, switching, and cleanup methods
+  - Resource pooling for efficient browser usage
+- **Multi-Tab Example** (`examples/multi_tab_example.rs`)
+  - Demonstrates concurrent tab workflows
+  - Tab lifecycle management and cleanup
+  - Resource limit testing and error handling
+
 #### Dependencies
 - Added `jsonwebtoken 9.3` for JWT support
 - Added `chrono 0.4` for timestamp management
@@ -83,6 +207,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `libc 0.2` for syscall constants
 - Added `async-trait 0.1` for async trait support
 - Added `criterion 0.5` for performance benchmarking
+- Added `base64 0.22` for image encoding in vision models
 
 ### Changed
 

@@ -22,6 +22,31 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::time::Duration;
+use thiserror::Error;
+
+/// Error types for API client operations
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("Network error: {0}")]
+    Network(#[from] reqwest::Error),
+
+    #[error("JSON serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+
+    #[error("HTTP {status}: {message}")]
+    Http { status: u16, message: String },
+
+    #[error("API error: {0}")]
+    Api(String),
+
+    #[error("URL building error: {0}")]
+    Url(String),
+
+    #[error("Configuration error: {0}")]
+    Config(String),
+}
+
+pub type ApiResult<T> = Result<T, ApiError>;
 
 /// API client configuration
 #[derive(Debug, Clone)]
@@ -130,7 +155,7 @@ impl ApiClient {
         url: &str,
         headers: Option<HeaderMap>,
         body: Option<String>,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> ApiResult<Response> {
         let mut last_error = None;
         let max_attempts = if self.config.retry_enabled {
             self.config.max_retries + 1
@@ -174,15 +199,11 @@ impl ApiClient {
             }
         }
 
-        Err(format!("Request failed after {} attempts: {}", max_attempts, last_error.unwrap())
-            .into())
+        Err(last_error.unwrap().into())
     }
 
     /// GET request returning JSON
-    pub async fn get<T: DeserializeOwned>(
-        &self,
-        endpoint: &str,
-    ) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> ApiResult<T> {
         let url = self.build_url(endpoint);
         tracing::info!("GET {}", url);
 
@@ -191,7 +212,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("GET failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         let data: T = response.json().await?;
@@ -203,7 +224,7 @@ impl ApiClient {
         &self,
         endpoint: &str,
         body: &T,
-    ) -> Result<R, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> ApiResult<R> {
         let url = self.build_url(endpoint);
         tracing::info!("POST {}", url);
 
@@ -213,7 +234,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("POST failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         let data: R = response.json().await?;
@@ -225,7 +246,7 @@ impl ApiClient {
         &self,
         endpoint: &str,
         body: &T,
-    ) -> Result<R, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> ApiResult<R> {
         let url = self.build_url(endpoint);
         tracing::info!("PUT {}", url);
 
@@ -235,7 +256,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("PUT failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         let data: R = response.json().await?;
@@ -247,7 +268,7 @@ impl ApiClient {
         &self,
         endpoint: &str,
         body: &T,
-    ) -> Result<R, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> ApiResult<R> {
         let url = self.build_url(endpoint);
         tracing::info!("PATCH {}", url);
 
@@ -257,7 +278,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("PATCH failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         let data: R = response.json().await?;
@@ -265,10 +286,7 @@ impl ApiClient {
     }
 
     /// DELETE request
-    pub async fn delete(
-        &self,
-        endpoint: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn delete(&self, endpoint: &str) -> ApiResult<()> {
         let url = self.build_url(endpoint);
         tracing::info!("DELETE {}", url);
 
@@ -277,7 +295,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("DELETE failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         Ok(())
@@ -286,9 +304,10 @@ impl ApiClient {
     /// GraphQL query
     pub async fn graphql_query(
         &self,
+        _endpoint: &str,
         query: &str,
-        variables: &HashMap<String, JsonValue>,
-    ) -> Result<JsonValue, Box<dyn std::error::Error + Send + Sync>> {
+        variables: Option<JsonValue>,
+    ) -> ApiResult<JsonValue> {
         tracing::info!("GraphQL query");
 
         let body = serde_json::json!({
@@ -304,14 +323,14 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("GraphQL failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         let result: JsonValue = response.json().await?;
 
         // Check for GraphQL errors
         if let Some(errors) = result.get("errors") {
-            return Err(format!("GraphQL errors: {}", errors).into());
+            return Err(ApiError::Api(format!("GraphQL errors: {}", errors)));
         }
 
         Ok(result)
@@ -323,7 +342,7 @@ impl ApiClient {
         endpoint: &str,
         files: Vec<(&str, Vec<u8>)>,
         fields: HashMap<String, String>,
-    ) -> Result<JsonValue, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> ApiResult<JsonValue> {
         let url = self.build_url(endpoint);
         tracing::info!("POST multipart {}", url);
 
@@ -351,7 +370,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("Upload failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         let result: JsonValue = response.json().await?;
@@ -359,10 +378,7 @@ impl ApiClient {
     }
 
     /// Download file as bytes
-    pub async fn download_file(
-        &self,
-        endpoint: &str,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn download_file(&self, endpoint: &str) -> ApiResult<Vec<u8>> {
         let url = self.build_url(endpoint);
         tracing::info!("Downloading file from {}", url);
 
@@ -370,7 +386,10 @@ impl ApiClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(format!("Download failed with status {}", status).into());
+            return Err(ApiError::Http {
+                status: status.as_u16(),
+                message: "Download failed".to_string(),
+            });
         }
 
         let bytes = response.bytes().await?.to_vec();
@@ -385,7 +404,7 @@ impl ApiClient {
         endpoint: &str,
         headers: Option<HeaderMap>,
         body: Option<JsonValue>,
-    ) -> Result<JsonValue, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> ApiResult<JsonValue> {
         let url = self.build_url(endpoint);
         tracing::info!("{} {}", method, url);
 
@@ -400,7 +419,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            return Err(format!("Request failed with status {}: {}", status, error_text).into());
+            return Err(ApiError::Http { status: status.as_u16(), message: error_text });
         }
 
         let result: JsonValue = response.json().await?;

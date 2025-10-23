@@ -41,8 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 4. Create Agent with ML capabilities
     let tools = ToolRegistry::with_browser_tools();
-    let agent =
-        AgentOrchestrator::new(provider, config, tools).with_kg(kg).with_predictor(predictor);
+    let agent = AgentOrchestrator::new(provider, config, tools);
 
     // 5. Define task that uses ML reasoning
     let task = AgentTask::new(

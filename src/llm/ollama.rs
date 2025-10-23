@@ -38,6 +38,11 @@ impl OllamaProvider {
 
         Self { client, config }
     }
+
+    /// Convert tools for Ollama API (Ollama uses tools as-is)
+    fn convert_tools(&self, tools: &[serde_json::Value]) -> LLMResult<Vec<serde_json::Value>> {
+        Ok(tools.to_vec())
+    }
 }
 
 impl Default for OllamaProvider {
@@ -85,7 +90,7 @@ impl LLMProvider for OllamaProvider {
         let response = self.call_api(&request).await?;
 
         Ok(LLMResponse {
-            content: response.message.content,
+            content: response.message.content.to_string(),
             tool_calls: response.message.tool_calls,
             finish_reason: response.done_reason.unwrap_or_default(),
             usage: TokenUsage {
@@ -103,6 +108,8 @@ impl LLMProvider for OllamaProvider {
         tools: Vec<serde_json::Value>,
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse> {
+        let tools = self.convert_tools(&tools)?;
+
         let request = OllamaChatRequest {
             model: config.model.clone(),
             messages,
@@ -119,7 +126,7 @@ impl LLMProvider for OllamaProvider {
         let response = self.call_api(&request).await?;
 
         Ok(LLMResponse {
-            content: response.message.content,
+            content: response.message.content.to_string(),
             tool_calls: response.message.tool_calls,
             finish_reason: response.done_reason.unwrap_or_default(),
             usage: TokenUsage {

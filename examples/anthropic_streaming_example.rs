@@ -1,31 +1,30 @@
-#[cfg(feature = "llm-openai")]
-mod streaming_impl {
+#[cfg(feature = "llm-anthropic")]
+mod anthropic_impl {
     use semantic_browser::llm::*;
     use std::env;
 
     #[tokio::main]
     pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-        println!("🎬 OpenAI Streaming Example");
-        println!("===========================");
+        println!("🎬 Anthropic Claude Streaming Example");
+        println!("=====================================");
         println!();
 
         // Load API key
         #[allow(clippy::disallowed_methods)]
-        let api_key = env::var("OPENAI_API_KEY").expect(
-            "OPENAI_API_KEY must be set. Get one from https://platform.openai.com/api-keys",
-        );
+        let api_key = env::var("ANTHROPIC_API_KEY")
+            .expect("ANTHROPIC_API_KEY must be set. Get one from https://console.anthropic.com/");
 
-        println!("✅ Loaded OpenAI API key");
+        println!("✅ Loaded Anthropic API key");
 
         // Create provider
-        let provider = OpenAIProvider::new(api_key);
-        println!("✅ Created OpenAI provider");
+        let provider = AnthropicProvider::new(api_key);
+        println!("✅ Created Anthropic provider");
         println!();
 
         // Health check
         println!("🔍 Performing health check...");
         match provider.health_check().await {
-            Ok(_) => println!("✅ OpenAI API is accessible"),
+            Ok(_) => println!("✅ Anthropic API is accessible"),
             Err(e) => {
                 eprintln!("❌ Health check failed: {}", e);
                 return Err(e.into());
@@ -35,7 +34,7 @@ mod streaming_impl {
 
         // Configure LLM
         let config = LLMConfig {
-            model: "gpt-3.5-turbo".to_string(),
+            model: "claude-3-sonnet-20240229".to_string(),
             temperature: 0.7,
             max_tokens: Some(200),
             ..Default::default()
@@ -105,7 +104,7 @@ mod streaming_impl {
 
     /// Helper function to demonstrate streaming
     async fn stream_example(
-        provider: &OpenAIProvider,
+        provider: &AnthropicProvider,
         config: &LLMConfig,
         prompt: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -141,12 +140,18 @@ mod streaming_impl {
     }
 }
 
-#[cfg(feature = "llm-openai")]
-pub use streaming_impl::main;
+#[cfg(feature = "llm-anthropic")]
+pub use anthropic_impl::main;
 
-#[cfg(not(feature = "llm-openai"))]
+#[cfg(not(feature = "llm-anthropic"))]
 fn main() {
-    eprintln!("❌ This example requires the 'llm-openai' feature.");
-    eprintln!("Run with: cargo run --features llm-openai --example streaming_example");
+    println!("🎬 Anthropic Claude Streaming Example");
+    println!("=====================================");
+    println!();
+    println!("❌ This example requires the 'llm-anthropic' feature.");
+    println!(
+        "   Run with: cargo run --features llm-anthropic --example anthropic_streaming_example"
+    );
+    println!("   Get an API key from: https://console.anthropic.com/");
     std::process::exit(1);
 }

@@ -23,6 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("=================================");
 
     // Load API key - using OpenAI for this example
+    #[allow(clippy::disallowed_methods)]
     let api_key = env::var("OPENAI_API_KEY")
         .expect("OPENAI_API_KEY must be set. Get one from https://platform.openai.com/api-keys");
 
@@ -47,6 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (browser_instance, mut handler) =
         chromiumoxide::Browser::launch(chromiumoxide::BrowserConfig::builder().build().unwrap())
             .await?;
+    #[allow(clippy::redundant_pattern_matching)]
     tokio::spawn(async move { while let Some(_) = handler.next().await {} });
     let page = browser_instance.new_page("about:blank").await?;
     let browser = BrowserExecutor::new(Arc::new(page)).await?;

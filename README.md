@@ -6,6 +6,7 @@
 [![Security Audit](https://img.shields.io/github/actions/workflow/status/gianlucamazza/semanticbrowser/security.yml?label=security&logo=github)](https://github.com/gianlucamazza/semanticbrowser/actions/workflows/security.yml)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://github.com/gianlucamazza/semanticbrowser)
 
+[![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)](https://github.com/gianlucamazza/semanticbrowser)
 [![AI Agents](https://img.shields.io/badge/AI-Agents-FF6F00?logo=robot&logoColor=white)](https://github.com/gianlucamazza/semanticbrowser)
 [![Semantic Web](https://img.shields.io/badge/Semantic-Web-blue?logo=w3c)](https://github.com/gianlucamazza/semanticbrowser)
 [![RDF/SPARQL](https://img.shields.io/badge/RDF-SPARQL-4285F4)](https://github.com/gianlucamazza/semanticbrowser)
@@ -60,7 +61,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Testing
 
-Basic testing commands. See **[Testing Guide](docs/guides/testing.md)** for comprehensive testing information:
+Basic testing commands. See **[Testing Guide](developer-guide/testing.md)** for comprehensive testing information:
 
 ```bash
 # Run all tests
@@ -98,7 +99,7 @@ cargo build --all-features
 
 ## Docker
 
-Complete Docker setup and deployment guide available at **[Docker Setup](docs/guides/docker-setup.md)**.
+Complete Docker setup and deployment guide available at **[Docker Setup](user-guide/docker-setup.md)**.
 
 ### Quick Docker Commands
 
@@ -118,14 +119,14 @@ docker-compose down
 
 ## Examples
 
-See the `docs/examples/` directory for usage examples:
-- `docs/examples/parse_html.sh` - Parse HTML and extract semantic data
-- `docs/examples/query_kg.sh` - Query and update the knowledge graph
-- `docs/examples/browse_url.sh` - Browse URLs and extract information
+See the `docs/user-guide/examples/` directory for usage examples:
+- `docs/user-guide/examples/parse_html.sh` - Parse HTML and extract semantic data
+- `docs/user-guide/examples/query_kg.sh` - Query and update the knowledge graph
+- `docs/user-guide/examples/browse_url.sh` - Browse URLs and extract information
 
 Make scripts executable:
 ```bash
-chmod +x docs/examples/*.sh
+chmod +x docs/user-guide/examples/*.sh
 ```
 
 ## Troubleshooting
@@ -152,7 +153,7 @@ Common issues:
 
 ## Contributing
 
-See **[Contributing Guide](docs/development/contributing.md)** for development guidelines and contribution process.
+See **[Contributing Guide](developer-guide/contributing.md)** for development guidelines and contribution process.
 
 Quick start: Fork, create branch, make changes, run tests, submit PR.
 

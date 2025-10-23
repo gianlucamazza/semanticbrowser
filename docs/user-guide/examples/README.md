@@ -6,7 +6,7 @@ This directory contains example scripts for using the Semantic Browser API.
 
 Make the example scripts executable:
 ```bash
-chmod +x docs/examples/*.sh
+chmod +x docs/user-guide/examples/*.sh
 ```
 
 See [Quick Start](../quickstart.md) for server setup instructions.
@@ -16,43 +16,43 @@ See [Quick Start](../quickstart.md) for server setup instructions.
 ### Core API Examples
 Extract semantic data from HTML:
 ```bash
-./examples/parse_html.sh
+./docs/user-guide/examples/parse_html.sh
 ```
 
 Query and update the knowledge graph using SPARQL:
 ```bash
-./examples/query_kg.sh
+./docs/user-guide/examples/query_kg.sh
 ```
 
 Browse a URL and extract semantic information:
 ```bash
-./examples/browse_url.sh
+./docs/user-guide/examples/browse_url.sh
 ```
 
 JWT token generation and revocation with Redis:
 ```bash
-./examples/token_revocation.sh
+./docs/user-guide/examples/token_revocation.sh
 ```
 
 ### Comprehensive Workflows
 Complete ML NER workflow with BERT models:
 ```bash
-./examples/ner-bert-workflow.sh
+./docs/user-guide/examples/ner-bert-workflow.sh
 ```
 
 Knowledge graph inference with embeddings:
 ```bash
-./examples/kg-ml-inference.sh
+./docs/user-guide/examples/kg-ml-inference.sh
 ```
 
 End-to-end browser automation workflow:
 ```bash
-./examples/browser-workflow.sh
+./docs/user-guide/examples/browser-workflow.sh
 ```
 
 MCP protocol client integration:
 ```bash
-./examples/mcp-client-integration.sh
+./docs/user-guide/examples/mcp-client-integration.sh
 ```
 
 ## Authentication and Rate Limiting

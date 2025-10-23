@@ -1,67 +1,63 @@
-//! Example: Form Login and Data Extraction
+//! Example: Basic Browser Navigation and Data Extraction
 //!
-//! Demonstrates how to use FormFiller to automate login and extract data from authenticated pages.
+//! Demonstrates basic browser automation and semantic data extraction.
+//! For form interaction examples, see the browser-automation feature examples.
 
 use semantic_browser::browser::{BrowserConfig, BrowserPool, NavigationOptions};
-use semantic_browser::form_interaction::{FormData, FormFiller};
-use std::sync::Arc;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize logging
     tracing_subscriber::fmt().with_env_filter("info,semantic_browser=debug").init();
 
-    println!("🚀 Form Login Example");
-    println!("=====================\n");
+    println!("🚀 Browser Navigation Example");
+    println!("=============================\n");
 
     // 1. Create browser pool
     let config = BrowserConfig::default();
-    let pool = BrowserPool::new(config).await?;
+    let pool = BrowserPool::new(config)
+        .await
+        .map_err(|e| format!("Failed to create browser pool: {}", e))?;
 
-    // 2. Navigate to login page
-    println!("📄 Navigating to login page...");
-    let options = NavigationOptions::default();
-    let page = pool.get_page().await?;
-
-    // Example: Login to a test site
-    page.goto("https://the-internet.herokuapp.com/login").await?;
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-
-    // 3. Create form filler
-    let filler = FormFiller::new(Arc::new(page.clone()));
-
-    // 4. Fill login form
-    println!("✍️  Filling login form...");
-    let login_data =
-        FormData::new().text("#username", "tomsmith").text("#password", "SuperSecretPassword!");
-
-    filler.fill_form(&login_data).await?;
-
-    // 5. Submit form
-    println!("📤 Submitting form...");
-    filler.submit_form("button[type='submit']").await?;
-
-    println!("✅ Login successful!");
-
-    // 6. Extract data from authenticated page
-    println!("\n📊 Extracting data from authenticated page...");
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    // 2. Navigate to a test page and extract semantic data
+    println!("📄 Navigating to test page...");
+    let options = NavigationOptions { take_screenshot: true, ..Default::default() };
 
     let semantic_data = pool
+        .navigate_and_extract("https://the-internet.herokuapp.com/", options)
+        .await
+        .map_err(|e| format!("Failed to navigate to test page: {}", e))?;
+
+    println!("📄 Page loaded successfully!");
+    println!("  Title: {:?}", semantic_data.title);
+    println!("  Final URL: {}", semantic_data.final_url);
+    if let Some(meta_desc) = &semantic_data.meta_description {
+        println!("  Meta Description: {}", meta_desc);
+    }
+    println!("  Text Content: {} chars", semantic_data.text_content.len());
+    println!("  JSON-LD Items: {}", semantic_data.json_ld.len());
+    println!("  Microdata Items: {}", semantic_data.microdata.len());
+
+    // 3. Navigate to another page
+    println!("\n📄 Navigating to another page...");
+    let about_data = pool
         .navigate_and_extract(
-            "https://the-internet.herokuapp.com/secure",
+            "https://the-internet.herokuapp.com/abtest",
             NavigationOptions::default(),
         )
-        .await?;
+        .await
+        .map_err(|e| format!("Failed to navigate to about page: {}", e))?;
 
-    println!("\n📄 Extracted Data:");
-    println!("  Title: {:?}", semantic_data.title);
-    println!("  Text Content: {} chars", semantic_data.text_content.len());
-    println!("  Final URL: {}", semantic_data.final_url);
+    println!("📄 About page loaded!");
+    println!("  Title: {:?}", about_data.title);
+    println!("  Final URL: {}", about_data.final_url);
 
     // Cleanup
-    pool.shutdown().await?;
+    pool.shutdown().await.map_err(|e| format!("Failed to shutdown browser pool: {}", e))?;
 
     println!("\n✅ Example completed successfully!");
+    println!("\n💡 Tip: Enable the 'browser-automation' feature for advanced form interaction:");
+    println!("   cargo run --example form_login_example --features browser-automation");
+
     Ok(())
 }

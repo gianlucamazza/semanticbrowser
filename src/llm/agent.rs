@@ -3,9 +3,8 @@ use super::browser_executor::BrowserExecutor;
 use super::provider::{LLMConfig, LLMProvider, LLMResult, Message};
 use super::tools::ToolRegistry;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use tracing::{info, warn};
 
 #[cfg(feature = "onnx-integration")]

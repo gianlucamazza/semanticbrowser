@@ -7,10 +7,9 @@ use semantic_browser::browser::{BrowserConfig, BrowserPool};
 use semantic_browser::form_analyzer::FieldType;
 use semantic_browser::smart_form_filler::SmartFormFiller;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize logging
     tracing_subscriber::fmt().with_env_filter("info,semantic_browser=debug").init();
 
@@ -29,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 3. Create smart form filler (auto-discovers form structure)
     println!("🔍 Analyzing page structure...");
-    let filler = SmartFormFiller::new(Arc::new(page.clone())).await?;
+    let filler = SmartFormFiller::new(page.clone()).await?;
 
     // 4. Show discovered forms
     println!("\n📋 Discovered Forms:");

@@ -96,7 +96,7 @@ ci: fmt-check lint test ## Run CI checks locally
 
 # Examples
 examples: ## Make example scripts executable
-	chmod +x docs/examples/*.sh
+	chmod +x docs/user-guide/examples/*.sh
 
 # Setup
 setup: examples ## Initial project setup

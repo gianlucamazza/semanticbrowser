@@ -6,11 +6,12 @@ use semantic_browser::llm::browser_executor::BrowserExecutor;
 
 #[cfg(feature = "browser-automation")]
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🤖 Browser Agent Example");
     println!("========================");
 
     // Load API key - using OpenAI for this example
+    #[allow(clippy::disallowed_methods)]
     let api_key = env::var("OPENAI_API_KEY")
         .expect("OPENAI_API_KEY must be set. Get one from https://platform.openai.com/api-keys");
 
@@ -32,9 +33,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create browser executor
     println!("🌐 Setting up browser automation...");
-    let (browser_instance, _handler) = chromiumoxide::Browser::launch(Default::default())
-        .await
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+    let (browser_instance, _handler) =
+        chromiumoxide::Browser::launch(chromiumoxide::BrowserConfig::builder().build()?)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
 
     let page = browser_instance
         .new_page("about:blank")

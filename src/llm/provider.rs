@@ -11,11 +11,46 @@ pub enum Role {
     Tool,
 }
 
-/// A message in the LLM conversation
+/// Content block for messages (supports text and images for vision models)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ContentBlock {
+    /// Text content
+    Text(String),
+    /// Image content
+    Image(ImageContent),
+}
+
+/// Image content for vision models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageContent {
+    /// Image source (URL or base64 data)
+    pub image_url: ImageSource,
+}
+
+/// Image source types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ImageSource {
+    /// Image URL
+    Url(String),
+    /// Base64 encoded image data
+    Base64 {
+        /// MIME type (e.g., "image/jpeg", "image/png")
+        #[serde(rename = "type")]
+        media_type: String,
+        /// Base64 encoded data
+        data: String,
+    },
+}
+
+/// A message in the LLM conversation (supports both text-only and vision content)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub role: Role,
-    pub content: String,
+    /// Content can be either a simple string (backward compatibility) or content blocks (vision)
+    #[serde(flatten)]
+    pub content: MessageContent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -24,44 +59,127 @@ pub struct Message {
     pub tool_call_id: Option<String>,
 }
 
+/// Message content (backward compatible with string, extensible for vision)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MessageContent {
+    /// Simple text content (backward compatibility)
+    Text(String),
+    /// Content blocks (for vision models)
+    Blocks(Vec<ContentBlock>),
+}
+
+impl std::fmt::Display for MessageContent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessageContent::Text(text) => write!(f, "{}", text),
+            MessageContent::Blocks(blocks) => {
+                for (i, block) in blocks.iter().enumerate() {
+                    if i > 0 {
+                        writeln!(f)?;
+                    }
+                    match block {
+                        ContentBlock::Text(text) => write!(f, "{}", text)?,
+                        ContentBlock::Image(_) => write!(f, "[Image]")?,
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 impl Message {
+    /// Create a system message with text content (backward compatible)
     pub fn system(content: impl Into<String>) -> Self {
         Self {
             role: Role::System,
-            content: content.into(),
+            content: MessageContent::Text(content.into()),
             name: None,
             tool_calls: None,
             tool_call_id: None,
         }
     }
 
+    /// Create a user message with text content (backward compatible)
     pub fn user(content: impl Into<String>) -> Self {
         Self {
             role: Role::User,
-            content: content.into(),
+            content: MessageContent::Text(content.into()),
             name: None,
             tool_calls: None,
             tool_call_id: None,
         }
     }
 
+    /// Create an assistant message with text content (backward compatible)
     pub fn assistant(content: impl Into<String>) -> Self {
         Self {
             role: Role::Assistant,
-            content: content.into(),
+            content: MessageContent::Text(content.into()),
             name: None,
             tool_calls: None,
             tool_call_id: None,
         }
     }
 
+    /// Create a tool response message with text content
     pub fn tool_response(content: impl Into<String>, tool_call_id: String) -> Self {
         Self {
             role: Role::Tool,
-            content: content.into(),
+            content: MessageContent::Text(content.into()),
             name: None,
             tool_calls: None,
             tool_call_id: Some(tool_call_id),
+        }
+    }
+
+    /// Create a user message with vision content (text + images)
+    pub fn user_vision(content_blocks: Vec<ContentBlock>) -> Self {
+        Self {
+            role: Role::User,
+            content: MessageContent::Blocks(content_blocks),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
+
+    /// Create a user message with text and a single image
+    pub fn user_with_image(text: impl Into<String>, image_url: impl Into<String>) -> Self {
+        let blocks = vec![
+            ContentBlock::Text(text.into()),
+            ContentBlock::Image(ImageContent { image_url: ImageSource::Url(image_url.into()) }),
+        ];
+        Self::user_vision(blocks)
+    }
+
+    /// Create a user message with a single image
+    pub fn user_image(image_url: impl Into<String>) -> Self {
+        let blocks = vec![ContentBlock::Image(ImageContent {
+            image_url: ImageSource::Url(image_url.into()),
+        })];
+        Self::user_vision(blocks)
+    }
+
+    /// Create a user message with base64 encoded image
+    pub fn user_image_base64(media_type: impl Into<String>, data: impl Into<String>) -> Self {
+        let blocks = vec![ContentBlock::Image(ImageContent {
+            image_url: ImageSource::Base64 { media_type: media_type.into(), data: data.into() },
+        })];
+        Self::user_vision(blocks)
+    }
+
+    /// Check if message contains vision content
+    pub fn has_vision_content(&self) -> bool {
+        matches!(self.content, MessageContent::Blocks(_))
+    }
+
+    /// Get text content if message is text-only (for backward compatibility)
+    pub fn text_content(&self) -> Option<&str> {
+        match &self.content {
+            MessageContent::Text(text) => Some(text),
+            MessageContent::Blocks(_) => None,
         }
     }
 }
@@ -160,6 +278,29 @@ pub trait LLMProvider: Send + Sync {
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse>;
 
+    /// Send a vision chat completion request (supports images)
+    async fn vision_chat_completion(
+        &self,
+        messages: Vec<Message>,
+        config: &LLMConfig,
+    ) -> LLMResult<LLMResponse> {
+        // Default implementation falls back to regular chat completion
+        // Providers that support vision should override this
+        self.chat_completion(messages, config).await
+    }
+
+    /// Send a vision chat completion request with tools/functions
+    async fn vision_chat_completion_with_tools(
+        &self,
+        messages: Vec<Message>,
+        tools: Vec<serde_json::Value>,
+        config: &LLMConfig,
+    ) -> LLMResult<LLMResponse> {
+        // Default implementation falls back to regular chat completion with tools
+        // Providers that support vision should override this
+        self.chat_completion_with_tools(messages, tools, config).await
+    }
+
     /// Stream a chat completion (optional, can return error if not supported)
     async fn stream_chat_completion(
         &self,
@@ -169,9 +310,23 @@ pub trait LLMProvider: Send + Sync {
         Err(LLMError::Config("Streaming not supported".to_string()))
     }
 
+    /// Stream a vision chat completion (optional, can return error if not supported)
+    async fn stream_vision_chat_completion(
+        &self,
+        _messages: Vec<Message>,
+        _config: &LLMConfig,
+    ) -> LLMResult<tokio::sync::mpsc::Receiver<String>> {
+        Err(LLMError::Config("Vision streaming not supported".to_string()))
+    }
+
     /// Get the provider name
     fn provider_name(&self) -> &str;
 
     /// Check if the provider is available
     async fn health_check(&self) -> LLMResult<bool>;
+
+    /// Check if provider supports vision models
+    fn supports_vision(&self) -> bool {
+        false
+    }
 }

@@ -1,5 +1,6 @@
 #[cfg(feature = "browser-automation")]
-use semantic_browser::browser::{Browser, ChromiumBrowserConfig};
+use chromiumoxide::browser::Browser;
+use futures_util::stream::StreamExt;
 #[cfg(feature = "browser-automation")]
 use semantic_browser::llm::BrowserExecutor;
 /// Agent with Real Browser Integration Example
@@ -24,7 +25,7 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Setup tracing
     let subscriber = FmtSubscriber::builder().with_max_level(Level::INFO).finish();
     tracing::subscriber::set_global_default(subscriber)?;
@@ -44,18 +45,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         // 1. Launch browser
         info!("🌐 Launching browser...");
-        use semantic_browser::browser::ChromiumBrowserConfig;
-        let (browser, mut handler) =
-            Browser::launch(ChromiumBrowserConfig::builder().build()?).await?;
-        let page = Arc::new(browser.new_page("about:blank").await?);
+        let (browser, mut handler) = Browser::launch(
+            chromiumoxide::BrowserConfig::builder()
+                .build()
+                .map_err(|e| format!("Failed to build browser config: {}", e))?,
+        )
+        .await?;
+        let page: Arc<chromiumoxide::Page> = Arc::new(browser.new_page("about:blank").await?);
         info!("✅ Browser launched");
 
         // Spawn handler task
+        #[allow(clippy::redundant_pattern_matching)]
         tokio::spawn(async move {
-            loop {
-                if handler.next().await.is_none() {
-                    break;
-                }
+            while let Some(_) = handler.next().await {
+                // Process handler events
             }
         });
 
@@ -100,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("🤖 Agent ready with REAL browser integration!\n");
 
         // 7. Define real-world tasks
-        let tasks = vec![
+        let tasks = [
             AgentTask::new("Navigate to example.com and get the page title").with_max_iterations(3),
             AgentTask::new("Go to httpbin.org/forms/post and extract the form field names")
                 .with_max_iterations(5),

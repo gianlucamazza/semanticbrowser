@@ -54,7 +54,6 @@ mod tests {
     // #[cfg(feature = "integration-tests")]
     #[allow(clippy::disallowed_methods)]
     mod integration_tests {
-        use super::*;
 
         #[tokio::test]
         async fn test_openai_health_check() {
@@ -201,6 +200,56 @@ mod tests {
             let next = rx.recv().await;
             assert!(next.is_none(), "Receiver should be closed after stream completes");
         }
+    }
+
+    #[tokio::test]
+    async fn test_openai_supports_vision() {
+        let provider = OpenAIProvider::new("test-key".to_string());
+        assert!(provider.supports_vision());
+    }
+
+    #[tokio::test]
+    async fn test_openai_vision_message_creation() {
+        use semantic_browser::llm::provider::{ContentBlock, ImageContent, ImageSource, Role};
+
+        // Test creating a vision message with text and image
+        let image_content = ImageContent {
+            image_url: ImageSource::Base64 {
+                data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==".to_string(),
+                media_type: "image/png".to_string(),
+            },
+        };
+
+        let blocks = vec![
+            ContentBlock::Text("What's in this image?".to_string()),
+            ContentBlock::Image(image_content),
+        ];
+
+        let message = Message::user_vision(blocks);
+        assert!(message.has_vision_content());
+        assert_eq!(message.role, Role::User);
+    }
+
+    #[tokio::test]
+    async fn test_openai_vision_message_formatting() {
+        use semantic_browser::llm::provider::{ContentBlock, ImageContent, ImageSource};
+
+        let image_content = ImageContent {
+            image_url: ImageSource::Base64 {
+                data: "base64data".to_string(),
+                media_type: "image/jpeg".to_string(),
+            },
+        };
+
+        let blocks = vec![
+            ContentBlock::Text("Describe this image:".to_string()),
+            ContentBlock::Image(image_content),
+        ];
+
+        let message = Message::user_vision(blocks);
+        let formatted = format!("{}", message.content);
+        assert!(formatted.contains("Describe this image:"));
+        assert!(formatted.contains("[Image]"));
     }
 
     // Unit tests for SSE parsing logic

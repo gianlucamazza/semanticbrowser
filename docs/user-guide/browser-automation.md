@@ -783,32 +783,40 @@ pool.shutdown().await?;
 
 ### 2. Minimalist Browsing
 
-**✅ NEW: Full Resource Blocking**:
+**⚠️ IMPORTANT: chromiumoxide 0.7 Limitations**:
 ```rust
 let config = BrowserConfig {
-    block_ads: true,       // Block ads, trackers, analytics (13 patterns)
-    block_images: true,    // Block images (8 formats)
+    block_ads: true,       // ⚠️ Limited: Only --disable-background-networking
+    block_images: true,    // ⚠️ NOT IMPLEMENTED: Reserved for future
     ..Default::default()
 };
 ```
 
-**Resource Blocking Patterns**:
+**Current Resource Blocking (chromiumoxide 0.7)**:
 
-**Ads & Trackers** (`block_ads: true`):
-- `*doubleclick.net*`, `*googleadservices.com*`, `*googlesyndication.com*`
-- `*google-analytics.com*`, `*googletagmanager.com*`
-- `*facebook.com/tr/*`, `*facebook.net*`
-- `*adservice*`, `*advertisement*`, `*/ads/*`
-- `*analytics*`, `*tracking*`, `*tracker*`
+**`block_ads: true`** - Limited Implementation:
+- ✅ Applies `--disable-background-networking` Chromium flag
+- ✅ Reduces background network activity
+- ❌ **Does NOT block specific domains** (doubleclick, analytics, etc.)
+- ❌ **Does NOT use URL pattern matching**
+- ❌ **Does NOT use CDP Network.setBlockedURLs**
 
-**Images** (`block_images: true`):
-- `*.jpg`, `*.jpeg`, `*.png`, `*.gif`, `*.webp`, `*.bmp`, `*.svg`, `*.ico`
+**`block_images: true`** - Not Implemented:
+- ❌ Chromiumoxide 0.7 lacks selective resource blocking by type
+- ❌ Images are still downloaded
+- ℹ️ Semantic extraction focuses on text/structured data regardless
 
-**Benefits**:
-- 🚀 **Faster page loads** - Skip unnecessary resources
-- 💾 **Reduced bandwidth** - Text-only extraction
-- 🎯 **Focused extraction** - Only semantic content
-- 🔒 **Privacy** - Block tracking scripts
+**Benefits (with limitations)**:
+- ⚠️ **Slightly faster** - Reduced background requests only
+- ⚠️ **Some privacy** - Fewer background connections
+- ✅ **Focused extraction** - Parser ignores images anyway
+- ❌ **Not full ad blocking** - Ads/trackers still load
+
+**Recommended for Production**:
+For real ad/tracker blocking, use:
+- **Network-level**: Pi-hole, AdGuard Home, DNS filtering
+- **Proxy-level**: Squid with blocklists, browser extensions (non-headless)
+- **Alternative**: Configure external proxy with chromiumoxide
 
 ### 3. Timeout Management
 
@@ -1344,7 +1352,7 @@ resources:
 
 See working examples in:
 - `tests/browser_test.rs` - Integration tests
-- `docs/examples/browse_with_browser.sh` - Shell script example
+- `docs/user-guide/examples/browse_url.sh` - Shell script example
 
 ---
 

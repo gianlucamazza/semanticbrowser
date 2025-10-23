@@ -15,18 +15,24 @@ The Semantic Browser is a Rust-based semantic web agent designed to extract, pro
 │   Web Content   │───▶│   HTML Parser   │───▶│  Entity Extract │
 │                 │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                        │
+                                                         │
 ┌─────────────────┐    ┌─────────────────┐             │
 │  External Tools │───▶│ Browser         │◀────────────┘
 │                 │    │ Automation      │
 └─────────────────┘    └─────────────────┘
-         │                       │
-         └───────────────────────┼─────────────────────────────┐
-                                 ▼                             ▼
-                    ┌─────────────────┐            ┌─────────────────┐
-                    │ Knowledge Graph │            │   REST API      │
-                    │                 │            │                 │
-                    └─────────────────┘            └─────────────────┘
+          │                       │             ┌─────────────────┐
+          └───────────────────────┼────────────▶│   LLM Provider  │
+                                  ▼             │  (Vision/Text)   │
+                     ┌─────────────────┐        └─────────────────┘
+                     │ Knowledge Graph │
+                     │                 │
+                     └─────────────────┘
+                              │
+                              ▼
+                     ┌─────────────────┐
+                     │   REST API      │
+                     │                 │
+                     └─────────────────┘
 ```
 
 ## Key Components
@@ -88,7 +94,33 @@ The Semantic Browser is a Rust-based semantic web agent designed to extract, pro
 
 **Dependencies**: `pyo3` (optional)
 
-### 6. Security (`src/security.rs`)
+### 6. LLM Provider (`src/llm/`)
+
+**Purpose**: Interface with Large Language Models for intelligent content analysis and vision capabilities.
+
+**Key Features**:
+- Multi-provider support (OpenAI, Anthropic, Ollama)
+- Vision model integration for image analysis
+- Streaming responses for real-time interaction
+- Tool/function calling for agent workflows
+- Content blocks supporting text and images
+
+**Dependencies**: `reqwest`, `tokio`, `serde`
+
+### 7. Browser Automation (`src/browser.rs`)
+
+**Purpose**: Headless browser automation for dynamic content extraction and multi-tab orchestration.
+
+**Key Features**:
+- Chromium-based headless browsing
+- Multi-tab management with resource pooling
+- Semantic data extraction from web pages
+- Screenshot capture and JavaScript execution
+- Concurrent tab operations for efficiency
+
+**Dependencies**: `chromiumoxide`, `futures`
+
+### 8. Security (`src/security.rs`)
 
 **Purpose**: Provide security utilities and validation.
 
@@ -103,9 +135,11 @@ The Semantic Browser is a Rust-based semantic web agent designed to extract, pro
 1. **Content Ingestion**: HTML content is received via API or file input
 2. **Parsing**: HTML is parsed to extract structured data and text content
 3. **Entity Recognition**: Text is analyzed for named entities and semantic relationships
-4. **Knowledge Graph**: Extracted information is stored as RDF triples
-5. **Query Processing**: SPARQL queries retrieve and manipulate stored knowledge
-6. **External Integration**: Browser automation provides additional context when needed
+4. **LLM Analysis**: Content is analyzed using LLMs for deeper understanding (including vision models for images)
+5. **Knowledge Graph**: Extracted information is stored as RDF triples
+6. **Query Processing**: SPARQL queries retrieve and manipulate stored knowledge
+7. **Browser Automation**: Dynamic content is extracted using headless browser with multi-tab support
+8. **External Integration**: Additional tools and workflows provide extended capabilities
 
 ## Design Decisions
 

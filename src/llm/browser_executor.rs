@@ -1,10 +1,13 @@
+#[cfg(feature = "browser-automation")]
 use crate::form_analyzer::FormAnalyzer;
+#[cfg(feature = "browser-automation")]
 use crate::llm::provider::{LLMError, LLMResult, ToolCall};
+#[cfg(feature = "browser-automation")]
 use crate::smart_form_filler::{AutoFillReport, SmartFormFiller};
-use std::collections::HashMap;
-
 #[cfg(feature = "browser-automation")]
 use chromiumoxide::Page;
+#[cfg(feature = "browser-automation")]
+use std::collections::HashMap;
 #[cfg(feature = "browser-automation")]
 use std::sync::Arc;
 

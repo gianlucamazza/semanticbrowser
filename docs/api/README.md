@@ -10,14 +10,42 @@ All API requests must include the `Authorization` header with a valid JWT token:
 Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 ```
 
+### Prerequisites
+
+**IMPORTANT**: Before using the API, you must configure JWT authentication:
+
+1. **Set JWT_SECRET** in `.env`:
+   ```bash
+   # Generate a secure random secret (at least 32 characters)
+   JWT_SECRET=$(openssl rand -base64 48)
+   echo "JWT_SECRET=$JWT_SECRET" >> .env
+   ```
+
+2. **Start the server** with the configured secret:
+   ```bash
+   cargo run
+   ```
+
+**⚠️ Security Warning**: 
+- Never use the default JWT_SECRET in production!
+- Generate a strong, random secret at least 32 characters long
+- Keep JWT_SECRET confidential and never commit to version control
+- Rotate JWT_SECRET periodically
+
 ### Token Generation
 
-First, generate a JWT token using the authentication endpoint:
+Generate a JWT token using the authentication endpoint:
 
 ```bash
-curl -X POST http://localhost:3000/auth/token \
+# Generate token
+TOKEN_RESPONSE=$(curl -s -X POST http://localhost:3000/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"username": "my-user", "role": "user"}'
+  -d '{"username": "my-user", "role": "user"}')
+
+# Extract token
+TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r .token)
+
+echo "Token: $TOKEN"
 ```
 
 **Response:**
@@ -28,7 +56,14 @@ curl -X POST http://localhost:3000/auth/token \
 }
 ```
 
-**⚠️ Security Warning**: JWT_SECRET must be configured in `.env` for production use. The default is insecure!
+**Token Parameters:**
+- `username`: Any string identifier for the user
+- `role`: Optional role for RBAC (e.g., "user", "admin")
+
+**Token Expiration:**
+- Default: 24 hours (86400 seconds)
+- Tokens automatically expire after this period
+- Generate a new token when expired
 
 ## Rate Limiting
 
@@ -530,7 +565,7 @@ API behavior can be configured via environment variables:
 
 ## Examples
 
-See the `docs/examples/` directory for complete API usage examples:
+See the `docs/user-guide/examples/` directory for complete API usage examples:
 
 ### Core API Examples
 - `parse_html.sh` - HTML parsing and semantic extraction

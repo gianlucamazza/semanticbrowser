@@ -43,13 +43,13 @@ Wait for the health check (about 5 seconds):
 
 ```bash
 # Parse HTML
-./examples/parse_html.sh
+./docs/user-guide/examples/parse_html.sh
 
 # Query Knowledge Graph
-./examples/query_kg.sh
+./docs/user-guide/examples/query_kg.sh
 
 # Browse URL
-./examples/browse_url.sh
+./docs/user-guide/examples/browse_url.sh
 ```
 
 ### Step 4: View Logs (Optional)
@@ -300,7 +300,7 @@ lsof -ti:3000 | xargs kill -9
 **Solution**:
 ```bash
 chmod +x docker/scripts/*.sh
-chmod +x docs/examples/*.sh
+chmod +x docs/user-guide/examples/*.sh
 ```
 
 ### Docker Build Slow

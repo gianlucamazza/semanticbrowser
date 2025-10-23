@@ -2,8 +2,6 @@
 //!
 //! Intelligent form filling with automatic field discovery.
 //! No hardcoded selectors required - uses semantic analysis.
-
-use crate::form_analyzer::{FieldDescription, FieldType, FormAnalyzer, FormDescription};
 #[cfg(feature = "browser-automation")]
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -181,7 +179,7 @@ impl SmartFormFiller {
         for form in &self.forms {
             for field in &form.fields {
                 if let Some(ref label) = field.label {
-                    if label.to_lowercase().contains(&label_lower) {
+                    if label.as_str().to_lowercase().contains(&label_lower) {
                         return match self.fill_element(&field.selector, value).await {
                             Ok(_) => Ok(FieldFillResult {
                                 selector_used: field.selector.clone(),
@@ -225,7 +223,7 @@ impl SmartFormFiller {
         for form in &self.forms {
             for field in &form.fields {
                 if let Some(ref placeholder) = field.placeholder {
-                    if placeholder.to_lowercase().contains(&placeholder_lower) {
+                    if placeholder.as_str().to_lowercase().contains(&placeholder_lower) {
                         return match self.fill_element(&field.selector, value).await {
                             Ok(_) => Ok(FieldFillResult {
                                 selector_used: field.selector.clone(),

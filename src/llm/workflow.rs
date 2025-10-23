@@ -474,6 +474,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute tool call
+    #[allow(unused_variables)]
     async fn execute_tool_call(&self, tool_call: &ToolCall) -> WorkflowResult<serde_json::Value> {
         #[cfg(feature = "browser-automation")]
         if let Some(browser) = &self.browser {

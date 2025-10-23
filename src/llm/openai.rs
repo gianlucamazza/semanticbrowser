@@ -1,5 +1,6 @@
 use crate::llm::provider::{
-    LLMConfig, LLMError, LLMProvider, LLMResponse, LLMResult, Message, Role, TokenUsage, ToolCall,
+    ContentBlock, ImageSource, LLMConfig, LLMError, LLMProvider, LLMResponse, LLMResult, Message,
+    MessageContent, Role, TokenUsage, ToolCall,
 };
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
@@ -24,11 +25,40 @@ struct OpenAIRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct OpenAIMessage {
-    role: String,
-    content: String,
+#[serde(untagged)]
+enum OpenAIMessage {
+    Text {
+        role: String,
+        content: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tool_calls: Option<Vec<OpenAIToolCall>>,
+    },
+    Vision {
+        role: String,
+        content: Vec<OpenAIContentBlock>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tool_calls: Option<Vec<OpenAIToolCall>>,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum OpenAIContentBlock {
+    Text {
+        r#type: String,
+        text: String,
+    },
+    Image {
+        r#type: String,
+        image_url: OpenAIImageSource,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct OpenAIImageSource {
+    url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tool_calls: Option<Vec<OpenAIToolCall>>,
+    detail: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,6 +165,49 @@ impl OpenAIProvider {
 
         Ok(openai_tools)
     }
+
+    /// Convert our Message format to OpenAI's message format
+    fn convert_message(&self, msg: Message) -> OpenAIMessage {
+        let role = match msg.role {
+            Role::System => "system".to_string(),
+            Role::User => "user".to_string(),
+            Role::Assistant => "assistant".to_string(),
+            Role::Tool => "assistant".to_string(), // OpenAI doesn't have tool role, map to assistant
+        };
+
+        match msg.content {
+            MessageContent::Text(text) => {
+                OpenAIMessage::Text { role, content: text, tool_calls: None }
+            }
+            MessageContent::Blocks(blocks) => {
+                let content = blocks
+                    .into_iter()
+                    .map(|block| match block {
+                        ContentBlock::Text(text) => {
+                            OpenAIContentBlock::Text { r#type: "text".to_string(), text }
+                        }
+                        ContentBlock::Image(image) => {
+                            let url = match image.image_url {
+                                ImageSource::Url(url) => url,
+                                ImageSource::Base64 { media_type, data } => {
+                                    format!("data:{};base64,{}", media_type, data)
+                                }
+                            };
+                            OpenAIContentBlock::Image {
+                                r#type: "image_url".to_string(),
+                                image_url: OpenAIImageSource {
+                                    url,
+                                    detail: Some("auto".to_string()), // Let OpenAI choose detail level
+                                },
+                            }
+                        }
+                    })
+                    .collect();
+
+                OpenAIMessage::Vision { role, content, tool_calls: None }
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -144,19 +217,8 @@ impl LLMProvider for OpenAIProvider {
         messages: Vec<Message>,
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse> {
-        let openai_messages = messages
-            .into_iter()
-            .map(|msg| OpenAIMessage {
-                role: match msg.role {
-                    Role::System => "system".to_string(),
-                    Role::User => "user".to_string(),
-                    Role::Assistant => "assistant".to_string(),
-                    Role::Tool => "assistant".to_string(), // OpenAI doesn't have tool role, map to assistant
-                },
-                content: msg.content,
-                tool_calls: None,
-            })
-            .collect::<Vec<_>>();
+        let openai_messages =
+            messages.into_iter().map(|msg| self.convert_message(msg)).collect::<Vec<_>>();
 
         let request = OpenAIRequest {
             model: config.model.clone(),
@@ -198,8 +260,24 @@ impl LLMProvider for OpenAIProvider {
                 })
                 .unwrap_or_default();
 
+            // Extract content from OpenAI message (could be text or vision format)
+            let content = match &choice.message {
+                OpenAIMessage::Text { content, .. } => content.clone(),
+                OpenAIMessage::Vision { content: blocks, .. } => {
+                    // For vision responses, extract text content
+                    blocks
+                        .iter()
+                        .filter_map(|block| match block {
+                            OpenAIContentBlock::Text { text, .. } => Some(text.clone()),
+                            OpenAIContentBlock::Image { .. } => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                }
+            };
+
             Ok(LLMResponse {
-                content: choice.message.content.clone(),
+                content,
                 tool_calls: None,
                 finish_reason: choice.finish_reason.clone().unwrap_or("stop".to_string()),
                 usage,
@@ -215,19 +293,8 @@ impl LLMProvider for OpenAIProvider {
         tools: Vec<serde_json::Value>,
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse> {
-        let openai_messages = messages
-            .into_iter()
-            .map(|msg| OpenAIMessage {
-                role: match msg.role {
-                    Role::System => "system".to_string(),
-                    Role::User => "user".to_string(),
-                    Role::Assistant => "assistant".to_string(),
-                    Role::Tool => "assistant".to_string(), // OpenAI doesn't have tool role, map to assistant
-                },
-                content: msg.content,
-                tool_calls: None,
-            })
-            .collect::<Vec<_>>();
+        let openai_messages =
+            messages.into_iter().map(|msg| self.convert_message(msg)).collect::<Vec<_>>();
 
         let tools = self.convert_tools(&tools)?;
 
@@ -272,22 +339,57 @@ impl LLMProvider for OpenAIProvider {
                 .unwrap_or_default();
 
             // Handle tool calls
-            let tool_calls = choice.message.tool_calls.as_ref().map(|openai_tool_calls| {
-                openai_tool_calls
-                    .iter()
-                    .map(|tc| ToolCall {
-                        id: tc.id.clone(),
-                        tool_type: tc.r#type.clone(),
-                        function: crate::llm::provider::FunctionCall {
-                            name: tc.function.name.clone(),
-                            arguments: tc.function.arguments.clone(),
-                        },
+            let tool_calls = match &choice.message {
+                OpenAIMessage::Text { tool_calls, .. } => {
+                    tool_calls.as_ref().map(|openai_tool_calls| {
+                        openai_tool_calls
+                            .iter()
+                            .map(|tc| ToolCall {
+                                id: tc.id.clone(),
+                                tool_type: tc.r#type.clone(),
+                                function: crate::llm::provider::FunctionCall {
+                                    name: tc.function.name.clone(),
+                                    arguments: tc.function.arguments.clone(),
+                                },
+                            })
+                            .collect()
                     })
-                    .collect()
-            });
+                }
+                OpenAIMessage::Vision { tool_calls, .. } => {
+                    tool_calls.as_ref().map(|openai_tool_calls| {
+                        openai_tool_calls
+                            .iter()
+                            .map(|tc| ToolCall {
+                                id: tc.id.clone(),
+                                tool_type: tc.r#type.clone(),
+                                function: crate::llm::provider::FunctionCall {
+                                    name: tc.function.name.clone(),
+                                    arguments: tc.function.arguments.clone(),
+                                },
+                            })
+                            .collect()
+                    })
+                }
+            };
+
+            // Extract content from OpenAI message
+            let content = match &choice.message {
+                OpenAIMessage::Text { content, .. } => content.clone(),
+                OpenAIMessage::Vision { content: blocks, .. } => {
+                    // For vision responses, extract text content
+                    blocks
+                        .iter()
+                        .filter_map(|block| match block {
+                            OpenAIContentBlock::Text { text, .. } => Some(text.clone()),
+                            OpenAIContentBlock::Image { .. } => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                }
+            };
 
             Ok(LLMResponse {
-                content: choice.message.content.clone(),
+                content,
                 tool_calls,
                 finish_reason: choice.finish_reason.clone().unwrap_or("stop".to_string()),
                 usage,
@@ -302,19 +404,8 @@ impl LLMProvider for OpenAIProvider {
         messages: Vec<Message>,
         config: &LLMConfig,
     ) -> LLMResult<tokio::sync::mpsc::Receiver<String>> {
-        let openai_messages = messages
-            .into_iter()
-            .map(|msg| OpenAIMessage {
-                role: match msg.role {
-                    Role::System => "system".to_string(),
-                    Role::User => "user".to_string(),
-                    Role::Assistant => "assistant".to_string(),
-                    Role::Tool => "assistant".to_string(),
-                },
-                content: msg.content,
-                tool_calls: None,
-            })
-            .collect::<Vec<_>>();
+        let openai_messages =
+            messages.into_iter().map(|msg| self.convert_message(msg)).collect::<Vec<_>>();
 
         let request = OpenAIRequest {
             model: config.model.clone(),
@@ -413,8 +504,41 @@ impl LLMProvider for OpenAIProvider {
         Ok(rx)
     }
 
+    async fn vision_chat_completion(
+        &self,
+        messages: Vec<Message>,
+        config: &LLMConfig,
+    ) -> LLMResult<LLMResponse> {
+        // For OpenAI, vision models use the same API as regular chat completion
+        // The difference is in the message format (handled by convert_message)
+        self.chat_completion(messages, config).await
+    }
+
+    async fn vision_chat_completion_with_tools(
+        &self,
+        messages: Vec<Message>,
+        tools: Vec<serde_json::Value>,
+        config: &LLMConfig,
+    ) -> LLMResult<LLMResponse> {
+        // For OpenAI, vision models with tools use the same API as regular chat completion with tools
+        self.chat_completion_with_tools(messages, tools, config).await
+    }
+
+    async fn stream_vision_chat_completion(
+        &self,
+        messages: Vec<Message>,
+        config: &LLMConfig,
+    ) -> LLMResult<tokio::sync::mpsc::Receiver<String>> {
+        // For OpenAI, vision streaming uses the same API as regular streaming
+        self.stream_chat_completion(messages, config).await
+    }
+
     fn provider_name(&self) -> &str {
         "openai"
+    }
+
+    fn supports_vision(&self) -> bool {
+        true
     }
 
     async fn health_check(&self) -> LLMResult<bool> {
@@ -423,13 +547,11 @@ impl LLMProvider for OpenAIProvider {
             .get(format!("{}/models", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
-            .await
-            .map_err(LLMError::Network)?;
+            .await;
 
-        if response.status().is_success() {
-            Ok(true)
-        } else {
-            Err(LLMError::Api("Health check failed".to_string()))
+        match response {
+            Ok(resp) => Ok(resp.status().is_success()),
+            Err(_) => Ok(false),
         }
     }
 }

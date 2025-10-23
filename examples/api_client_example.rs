@@ -2,7 +2,7 @@
 //!
 //! Demonstrates using ApiClient to interact with GitHub REST API and GraphQL.
 
-use semantic_browser::api_client::ApiClient;
+use semantic_browser::api_client::{ApiClient, ApiError};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -16,13 +16,14 @@ struct GitHubUser {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() -> Result<(), ApiError> {
     tracing_subscriber::fmt().with_env_filter("info,semantic_browser=debug").init();
 
     println!("🚀 GitHub API Client Example");
     println!("============================\n");
 
     // Get GitHub token from environment
+    #[allow(clippy::disallowed_methods)]
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN environment variable required");
 
     // 1. Create API client
@@ -66,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     variables.insert("owner".to_string(), serde_json::json!("rust-lang"));
     variables.insert("repo".to_string(), serde_json::json!("rust"));
 
-    let result = client.graphql_query(query, &variables).await?;
+    let result = client.graphql_query("", query, Some(serde_json::to_value(variables)?)).await?;
 
     if let Some(repo) = result["data"]["repository"].as_object() {
         println!("\n📦 Repository: rust-lang/rust");

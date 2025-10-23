@@ -147,9 +147,9 @@ if [ "$MODE" = "background" ]; then
     echo "  Status:       $0 --status"
     echo ""
     print_info "Try the examples:"
-    echo "  ./docs/examples/parse_html.sh"
-    echo "  ./docs/examples/query_kg.sh"
-    echo "  ./docs/examples/browse_url.sh"
+    echo "  ./docs/user-guide/examples/parse_html.sh"
+    echo "  ./docs/user-guide/examples/query_kg.sh"
+    echo "  ./docs/user-guide/examples/browse_url.sh"
 
 else
     print_info "Starting in foreground mode (Ctrl+C to stop)"

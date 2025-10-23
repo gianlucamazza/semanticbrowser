@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent = AgentOrchestrator::new(provider, llm_config, tools);
 
     // 5. Define tasks
-    let tasks = vec![
+    let tasks = [
         AgentTask::new("Navigate to github.com and find the trending repositories")
             .with_max_iterations(5),
         AgentTask::new("Fill out a contact form with name 'John Doe' and email 'john@example.com'")

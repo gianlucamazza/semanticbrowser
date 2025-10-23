@@ -323,7 +323,7 @@ Per contribuire al progetto:
 
 - **Issues**: GitHub Issues
 - **Docs**: `docs/` directory
-- **Examples**: `docs/examples/`
+- **Examples**: `docs/user-guide/examples/`
 
 ---
 
