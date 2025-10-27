@@ -57,7 +57,7 @@ redis = { version = "0.27", optional = true, features = ["tokio-comp", "connecti
 opentelemetry = { version = "0.27", optional = true }
 opentelemetry_sdk = { version = "0.27", optional = true, features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.27", optional = true }
-tracing-opentelemetry = { version = "0.28", optional = true }
+tracing-opentelemetry = { version = "0.32", optional = true }
 prometheus = { version = "0.13", optional = true }
 lazy_static = "1.4"
 
