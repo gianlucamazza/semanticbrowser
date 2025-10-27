@@ -27,7 +27,7 @@ tract-core = "0.21"
 tract-onnx = { version = "0.21", optional = true }
 tokenizers = { version = "0.20", optional = true }
 tokio = { version = "1", features = ["full"] }
-axum = { version = "0.7", features = ["macros"] }
+axum = { version = "0.8", features = ["macros"] }
 pyo3 = { version = "0.27", optional = true }
 # TODO: Add pyo3-async-runtimes when version 0.27 is released
 # pyo3-async-runtimes = { version = "0.27", optional = true, features = ["tokio"] }
