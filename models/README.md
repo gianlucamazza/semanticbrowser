@@ -80,7 +80,7 @@ KG_INFERENCE_MODEL_PATH=./models/kg-inference-model.onnx
 ## 📚 Learn More
 
 - [ML Setup Guide](../docs/ML_SETUP.md) - Complete setup instructions
-- [Complete Analysis](../docs/COMPLETE_ANALYSIS.md) - Full project analysis
+- [Complete Analysis](../docs/history/COMPLETE_ANALYSIS.md) - Full project analysis (archived snapshot)
 - [Examples](../examples/) - Code examples
 
 ## 🤝 Contributing
