@@ -301,7 +301,7 @@ docs/INTEGRATION_ANALYSIS.md     [NEW]  - Gap analysis
 
 ### Documentazione Disponibile
 - [src/llm/README.md](../src/llm/README.md) - Guide completa LLM
-- [docs/LLM_AGENT_ROADMAP.md](./LLM_AGENT_ROADMAP.md) - Roadmap 4 fasi
+- [docs/LLM_AGENT_ROADMAP.md](../LLM_AGENT_ROADMAP.md) - Roadmap 4 fasi
 - [docs/INTEGRATION_ANALYSIS.md](./INTEGRATION_ANALYSIS.md) - Analisi gap
 - [QUICK_START_LLM.md](../QUICK_START_LLM.md) - Quick start 5 minuti
 

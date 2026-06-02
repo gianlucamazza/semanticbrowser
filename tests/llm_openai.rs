@@ -57,6 +57,7 @@ mod tests {
         use semantic_browser::llm::{LLMConfig, LLMProvider, Message, OpenAIProvider};
 
         #[tokio::test]
+        #[ignore = "requires OPENAI_API_KEY and live network access"]
         async fn test_openai_health_check() {
             let api_key = std::env::var("OPENAI_API_KEY").unwrap();
             let provider = OpenAIProvider::new(api_key);
@@ -66,6 +67,7 @@ mod tests {
         }
 
         #[tokio::test]
+        #[ignore = "requires OPENAI_API_KEY and live network access"]
         async fn test_openai_chat_completion() {
             let api_key = std::env::var("OPENAI_API_KEY").unwrap();
             let provider = OpenAIProvider::new(api_key);
@@ -87,6 +89,7 @@ mod tests {
         }
 
         #[tokio::test]
+        #[ignore = "requires OPENAI_API_KEY and live network access"]
         async fn test_openai_chat_completion_with_tools() {
             let api_key = std::env::var("OPENAI_API_KEY").unwrap();
             let provider = OpenAIProvider::new(api_key);

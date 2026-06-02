@@ -20,11 +20,16 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage
+        # Exclude `seccomp` and `browser-automation` from coverage: tarpaulin uses
+        # ptrace, which conflicts with seccomp BPF filters, and browser-automation
+        # spawns external Chrome processes that leak and make tarpaulin report
+        # "Test failed during run" even though every test passes. All other features
+        # are covered.
         run: |
           cargo tarpaulin \
             --out Xml \
             --output-dir coverage \
-            --all-features \
+            --features pyo3-integration,onnx-integration,telemetry,observability,redis-integration,llm-openai,llm-anthropic \
             --workspace \
             --timeout 300 \
             --exclude-files 'tests/*' \
