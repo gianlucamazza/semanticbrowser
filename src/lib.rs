@@ -9,6 +9,7 @@ pub mod api;
 pub mod api_client;
 pub mod auth;
 pub mod browser;
+pub mod config;
 pub mod external;
 pub mod form_analyzer;
 pub mod form_interaction;

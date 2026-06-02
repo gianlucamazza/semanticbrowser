@@ -154,42 +154,9 @@ impl KnowledgeGraph {
     fn infer_subclass_transitive(&mut self) -> Result<usize, Box<dyn std::error::Error>> {
         let subclass_of = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
 
-        // Use SPARQL CONSTRUCT to find transitive relations
-        // This constructs new triples: ?a subClassOf ?c WHERE ?a->?b->?c
-        let construct_query = format!(
-            "CONSTRUCT {{ ?a <{0}> ?c }}
-             WHERE {{
-               ?a <{0}> ?b .
-               ?b <{0}> ?c .
-               FILTER(?a != ?c)
-               FILTER NOT EXISTS {{ ?a <{0}> ?c }}
-             }}",
-            subclass_of
-        );
-
-        // Execute CONSTRUCT query to get inferred triples
-        let results = self
-            .query(&construct_query)
-            .map_err(|e| -> Box<dyn std::error::Error> { format!("Query error: {}", e).into() })?;
-
-        if results.is_empty() {
-            tracing::debug!("No transitive subClassOf relations to infer");
-            return Ok(0);
-        }
-
-        tracing::debug!("Found {} potential transitive relations", results.len());
-
-        // Insert inferred triples using SPARQL UPDATE
-        let mut inferred = 0;
-        for result_str in results {
-            // Result format contains the triple to insert
-            // Extract subject, predicate, object and insert
-            if result_str.contains(subclass_of) {
-                inferred += 1;
-            }
-        }
-
-        // Alternatively, use direct INSERT DATA
+        // Insert transitive relations (?a -> ?c where ?a -> ?b -> ?c) that do not
+        // already exist. The actual number of new triples is measured as the delta in
+        // store size, so the returned count is exact (not an estimate).
         let insert_query = format!(
             "INSERT {{
                ?a <{0}> ?c
@@ -203,14 +170,26 @@ impl KnowledgeGraph {
             subclass_of
         );
 
-        match self.update(&insert_query) {
+        self.run_inference_update(&insert_query, "transitive subClassOf relations")
+    }
+
+    /// Run an INSERT-WHERE inference update and return the exact number of triples
+    /// added, computed as the delta in store size before/after the update.
+    fn run_inference_update(
+        &mut self,
+        insert_query: &str,
+        label: &str,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        let before = self.store.len()?;
+        match self.update(insert_query) {
             Ok(()) => {
-                // Count how many were actually inserted by comparing triple counts
-                tracing::debug!("Inserted transitive subClassOf relations");
+                let after = self.store.len()?;
+                let inferred = after.saturating_sub(before);
+                tracing::debug!("Inserted {} {}", inferred, label);
                 Ok(inferred)
             }
             Err(e) => {
-                tracing::warn!("Failed to insert transitive relations: {}", e);
+                tracing::warn!("Failed to insert {}: {}", label, e);
                 Ok(0)
             }
         }
@@ -235,16 +214,7 @@ impl KnowledgeGraph {
             subproperty_of
         );
 
-        match self.update(&insert_query) {
-            Ok(()) => {
-                tracing::debug!("Inserted transitive subPropertyOf relations");
-                Ok(1) // Return 1 to indicate inference ran
-            }
-            Err(e) => {
-                tracing::warn!("Failed to insert transitive subProperty relations: {}", e);
-                Ok(0)
-            }
-        }
+        self.run_inference_update(&insert_query, "transitive subPropertyOf relations")
     }
 
     /// Propagate types through class hierarchy
@@ -267,16 +237,7 @@ impl KnowledgeGraph {
             rdf_type, subclass_of
         );
 
-        match self.update(&insert_query) {
-            Ok(()) => {
-                tracing::debug!("Inserted type propagations");
-                Ok(1) // Return 1 to indicate inference ran
-            }
-            Err(e) => {
-                tracing::warn!("Failed to insert type propagations: {}", e);
-                Ok(0)
-            }
-        }
+        self.run_inference_update(&insert_query, "type propagations")
     }
 
     /// List all triples

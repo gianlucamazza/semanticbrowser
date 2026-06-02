@@ -2,6 +2,8 @@ pub mod agent;
 #[cfg(feature = "llm-anthropic")]
 pub mod anthropic;
 pub mod browser_executor;
+#[cfg(any(feature = "llm-openai", feature = "llm-anthropic"))]
+mod http;
 pub mod ollama;
 #[cfg(feature = "llm-openai")]
 pub mod openai;

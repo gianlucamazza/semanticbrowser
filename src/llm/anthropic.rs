@@ -3,7 +3,6 @@ use crate::llm::provider::{
     MessageContent, Role, TokenUsage, ToolCall,
 };
 use async_trait::async_trait;
-use futures_util::stream::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -201,104 +200,35 @@ impl AnthropicProvider {
             }
         }
     }
-}
 
-#[async_trait]
-impl LLMProvider for AnthropicProvider {
-    async fn chat_completion(
+    /// Build a `/messages` request (tools optional, streaming flag explicit).
+    fn build_request(
         &self,
         messages: Vec<Message>,
         config: &LLMConfig,
-    ) -> LLMResult<LLMResponse> {
+        tools: Option<Vec<AnthropicTool>>,
+        stream: bool,
+    ) -> AnthropicRequest {
         let (system, anthropic_messages) = self.convert_messages(messages);
-
-        let request = AnthropicRequest {
+        AnthropicRequest {
             model: config.model.clone(),
             max_tokens: config.max_tokens.unwrap_or(4096),
             messages: anthropic_messages,
             system,
-            tools: None,
-            stream: false,
-        };
-
-        let response = self
-            .client
-            .post(format!("{}/messages", self.base_url))
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(LLMError::Network)?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(LLMError::Api(format!("Anthropic API error: {}", error_text)));
+            tools,
+            stream,
         }
-
-        let anthropic_response: AnthropicResponse = response
-            .json()
-            .await
-            .map_err(|e| LLMError::InvalidResponse(format!("Failed to parse response: {}", e)))?;
-
-        let mut content = String::new();
-        for block in &anthropic_response.content {
-            match block.content_type.as_str() {
-                "text" => {
-                    if let Some(text) = &block.text {
-                        content.push_str(text);
-                    }
-                }
-                "tool_use" => {
-                    // Tool use content is handled separately in tool_calls
-                }
-                unknown_type => {
-                    tracing::warn!("Unknown Anthropic content type: {}", unknown_type);
-                }
-            }
-        }
-
-        let usage = TokenUsage {
-            prompt_tokens: anthropic_response.usage.input_tokens,
-            completion_tokens: anthropic_response.usage.output_tokens,
-            total_tokens: anthropic_response.usage.input_tokens
-                + anthropic_response.usage.output_tokens,
-        };
-
-        Ok(LLMResponse {
-            content,
-            tool_calls: None,
-            finish_reason: anthropic_response.stop_reason.unwrap_or("stop".to_string()),
-            usage,
-        })
     }
 
-    async fn chat_completion_with_tools(
-        &self,
-        messages: Vec<Message>,
-        tools: Vec<serde_json::Value>,
-        config: &LLMConfig,
-    ) -> LLMResult<LLMResponse> {
-        let (system, anthropic_messages) = self.convert_messages(messages);
-        let anthropic_tools = self.convert_tools(&tools)?;
-
-        let request = AnthropicRequest {
-            model: config.model.clone(),
-            max_tokens: config.max_tokens.unwrap_or(4096),
-            messages: anthropic_messages,
-            system,
-            tools: Some(anthropic_tools),
-            stream: false,
-        };
-
+    /// POST a request to `/messages` and deserialize the (non-streaming) response.
+    async fn post_messages(&self, request: &AnthropicRequest) -> LLMResult<AnthropicResponse> {
         let response = self
             .client
             .post(format!("{}/messages", self.base_url))
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
             .header("Content-Type", "application/json")
-            .json(&request)
+            .json(request)
             .send()
             .await
             .map_err(LLMError::Network)?;
@@ -308,29 +238,34 @@ impl LLMProvider for AnthropicProvider {
             return Err(LLMError::Api(format!("Anthropic API error: {}", error_text)));
         }
 
-        let anthropic_response: AnthropicResponse = response
+        response
             .json()
             .await
-            .map_err(|e| LLMError::InvalidResponse(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| LLMError::InvalidResponse(format!("Failed to parse response: {}", e)))
+    }
+}
 
+impl AnthropicResponse {
+    /// Concatenate the text content blocks (tool_use blocks are handled separately).
+    fn extract_content(&self) -> String {
         let mut content = String::new();
-        for block in &anthropic_response.content {
+        for block in &self.content {
             match block.content_type.as_str() {
                 "text" => {
                     if let Some(text) = &block.text {
                         content.push_str(text);
                     }
                 }
-                "tool_use" => {
-                    // Tool use content is handled separately in tool_calls
-                }
-                unknown_type => {
-                    tracing::warn!("Unknown Anthropic content type: {}", unknown_type);
-                }
+                "tool_use" => {} // surfaced via extract_tool_calls
+                unknown_type => tracing::warn!("Unknown Anthropic content type: {}", unknown_type),
             }
         }
+        content
+    }
 
-        let tool_calls = anthropic_response
+    /// Map `tool_use` content blocks to our generic `ToolCall` type.
+    fn extract_tool_calls(&self) -> Option<Vec<ToolCall>> {
+        let tool_calls: Vec<ToolCall> = self
             .content
             .iter()
             .filter_map(|block| block.tool_use.as_ref())
@@ -343,26 +278,52 @@ impl LLMProvider for AnthropicProvider {
                         .unwrap_or_else(|_| "{}".to_string()),
                 },
             })
-            .collect::<Vec<_>>();
+            .collect();
+        (!tool_calls.is_empty()).then_some(tool_calls)
+    }
 
-        let tool_calls = if tool_calls.is_empty() {
-            None
-        } else {
-            Some(tool_calls)
-        };
+    fn token_usage(&self) -> TokenUsage {
+        TokenUsage {
+            prompt_tokens: self.usage.input_tokens,
+            completion_tokens: self.usage.output_tokens,
+            total_tokens: self.usage.input_tokens + self.usage.output_tokens,
+        }
+    }
+}
 
-        let usage = TokenUsage {
-            prompt_tokens: anthropic_response.usage.input_tokens,
-            completion_tokens: anthropic_response.usage.output_tokens,
-            total_tokens: anthropic_response.usage.input_tokens
-                + anthropic_response.usage.output_tokens,
-        };
+#[async_trait]
+impl LLMProvider for AnthropicProvider {
+    async fn chat_completion(
+        &self,
+        messages: Vec<Message>,
+        config: &LLMConfig,
+    ) -> LLMResult<LLMResponse> {
+        let request = self.build_request(messages, config, None, false);
+        let response = self.post_messages(&request).await?;
 
         Ok(LLMResponse {
-            content,
-            tool_calls,
-            finish_reason: anthropic_response.stop_reason.unwrap_or("stop".to_string()),
-            usage,
+            content: response.extract_content(),
+            tool_calls: None,
+            finish_reason: response.stop_reason.clone().unwrap_or_else(|| "stop".to_string()),
+            usage: response.token_usage(),
+        })
+    }
+
+    async fn chat_completion_with_tools(
+        &self,
+        messages: Vec<Message>,
+        tools: Vec<serde_json::Value>,
+        config: &LLMConfig,
+    ) -> LLMResult<LLMResponse> {
+        let anthropic_tools = self.convert_tools(&tools)?;
+        let request = self.build_request(messages, config, Some(anthropic_tools), false);
+        let response = self.post_messages(&request).await?;
+
+        Ok(LLMResponse {
+            content: response.extract_content(),
+            tool_calls: response.extract_tool_calls(),
+            finish_reason: response.stop_reason.clone().unwrap_or_else(|| "stop".to_string()),
+            usage: response.token_usage(),
         })
     }
 
@@ -411,66 +372,26 @@ impl LLMProvider for AnthropicProvider {
                 return;
             }
 
-            let mut byte_stream = response.bytes_stream();
-            let mut buffer = String::new();
-
-            while let Some(chunk_result) = byte_stream.next().await {
-                let chunk = match chunk_result {
-                    Ok(bytes) => bytes,
+            crate::llm::http::pump_sse(response, tx, |data| {
+                match serde_json::from_str::<AnthropicStreamEvent>(data) {
+                    Ok(event) => match event.event_type.as_str() {
+                        "content_block_delta" => {
+                            let tokens = event.delta.and_then(|d| d.text).into_iter().collect();
+                            crate::llm::http::SseAction::Emit(tokens)
+                        }
+                        "message_stop" => crate::llm::http::SseAction::Stop,
+                        other => {
+                            tracing::debug!("Received event type: {}", other);
+                            crate::llm::http::SseAction::Skip
+                        }
+                    },
                     Err(e) => {
-                        tracing::error!("Failed to read response chunk: {}", e);
-                        return;
+                        tracing::debug!("Failed to parse Anthropic SSE event: {}. Data: {}", e, data);
+                        crate::llm::http::SseAction::Skip
                     }
-                };
-
-                if let Ok(text) = String::from_utf8(chunk.to_vec()) {
-                    buffer.push_str(&text);
-
-                    while let Some(newline_pos) = buffer.find('\n') {
-                        let line = buffer[..newline_pos].trim().to_string();
-                        buffer = buffer[newline_pos + 1..].to_string();
-
-                        if line.is_empty() {
-                            continue;
-                        }
-
-                        if let Some(data) = line.strip_prefix("data: ") {
-                            match serde_json::from_str::<AnthropicStreamEvent>(data) {
-                                Ok(stream_event) => match stream_event.event_type.as_str() {
-                                    "content_block_delta" => {
-                                        if let Some(delta) = stream_event.delta {
-                                            if let Some(text) = delta.text {
-                                                if let Err(e) = tx.send(text).await {
-                                                    tracing::warn!("Failed to send token: {}", e);
-                                                    return;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    "message_stop" => {
-                                        return;
-                                    }
-                                    _ => {
-                                        tracing::debug!(
-                                            "Received event type: {}",
-                                            stream_event.event_type
-                                        );
-                                    }
-                                },
-                                Err(e) => {
-                                    tracing::debug!(
-                                        "Failed to parse Anthropic SSE event: {}. Data: {}",
-                                        e,
-                                        data
-                                    );
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    tracing::warn!("Failed to convert response chunk to UTF-8");
                 }
-            }
+            })
+            .await;
         });
 
         Ok(rx)

@@ -16,7 +16,10 @@ pub struct OllamaConfig {
 
 impl Default for OllamaConfig {
     fn default() -> Self {
-        Self { base_url: "http://localhost:11434".to_string(), timeout: Duration::from_secs(120) }
+        Self {
+            base_url: crate::config::OLLAMA_DEFAULT_BASE_URL.to_string(),
+            timeout: Duration::from_secs(crate::config::OLLAMA_DEFAULT_TIMEOUT_SECS),
+        }
     }
 }
 
@@ -65,6 +68,41 @@ impl OllamaProvider {
         let ollama_response: OllamaChatResponse = response.json().await?;
         Ok(ollama_response)
     }
+
+    /// Build a non-streaming `/api/chat` request (tools optional).
+    fn build_request(
+        &self,
+        messages: Vec<Message>,
+        config: &LLMConfig,
+        tools: Option<Vec<serde_json::Value>>,
+    ) -> OllamaChatRequest {
+        OllamaChatRequest {
+            model: config.model.clone(),
+            messages,
+            stream: false,
+            options: Some(OllamaOptions {
+                temperature: Some(config.temperature),
+                top_p: config.top_p,
+                num_predict: config.max_tokens,
+                stop: config.stop.clone(),
+            }),
+            tools,
+        }
+    }
+
+    fn into_llm_response(response: OllamaChatResponse) -> LLMResponse {
+        LLMResponse {
+            content: response.message.content.to_string(),
+            tool_calls: response.message.tool_calls,
+            finish_reason: response.done_reason.unwrap_or_default(),
+            usage: TokenUsage {
+                prompt_tokens: response.prompt_eval_count.unwrap_or(0),
+                completion_tokens: response.eval_count.unwrap_or(0),
+                total_tokens: response.prompt_eval_count.unwrap_or(0)
+                    + response.eval_count.unwrap_or(0),
+            },
+        }
+    }
 }
 
 #[async_trait]
@@ -74,32 +112,9 @@ impl LLMProvider for OllamaProvider {
         messages: Vec<Message>,
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse> {
-        let request = OllamaChatRequest {
-            model: config.model.clone(),
-            messages,
-            stream: false,
-            options: Some(OllamaOptions {
-                temperature: Some(config.temperature),
-                top_p: config.top_p,
-                num_predict: config.max_tokens,
-                stop: config.stop.clone(),
-            }),
-            tools: None,
-        };
-
+        let request = self.build_request(messages, config, None);
         let response = self.call_api(&request).await?;
-
-        Ok(LLMResponse {
-            content: response.message.content.to_string(),
-            tool_calls: response.message.tool_calls,
-            finish_reason: response.done_reason.unwrap_or_default(),
-            usage: TokenUsage {
-                prompt_tokens: response.prompt_eval_count.unwrap_or(0),
-                completion_tokens: response.eval_count.unwrap_or(0),
-                total_tokens: response.prompt_eval_count.unwrap_or(0)
-                    + response.eval_count.unwrap_or(0),
-            },
-        })
+        Ok(Self::into_llm_response(response))
     }
 
     async fn chat_completion_with_tools(
@@ -109,33 +124,9 @@ impl LLMProvider for OllamaProvider {
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse> {
         let tools = self.convert_tools(&tools)?;
-
-        let request = OllamaChatRequest {
-            model: config.model.clone(),
-            messages,
-            stream: false,
-            options: Some(OllamaOptions {
-                temperature: Some(config.temperature),
-                top_p: config.top_p,
-                num_predict: config.max_tokens,
-                stop: config.stop.clone(),
-            }),
-            tools: Some(tools),
-        };
-
+        let request = self.build_request(messages, config, Some(tools));
         let response = self.call_api(&request).await?;
-
-        Ok(LLMResponse {
-            content: response.message.content.to_string(),
-            tool_calls: response.message.tool_calls,
-            finish_reason: response.done_reason.unwrap_or_default(),
-            usage: TokenUsage {
-                prompt_tokens: response.prompt_eval_count.unwrap_or(0),
-                completion_tokens: response.eval_count.unwrap_or(0),
-                total_tokens: response.prompt_eval_count.unwrap_or(0)
-                    + response.eval_count.unwrap_or(0),
-            },
-        })
+        Ok(Self::into_llm_response(response))
     }
 
     fn provider_name(&self) -> &str {

@@ -16,9 +16,6 @@ use crate::kg::KnowledgeGraph;
 #[cfg(feature = "onnx-integration")]
 use crate::ml::inference::LinkPredictor;
 
-// serde_json::Value is used in tool execution methods
-use serde_json::Value;
-
 /// Task to be executed by the agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentTask {
@@ -394,7 +391,7 @@ Be concise but thorough. Think step by step."#.to_string()
         &self,
         browser: &BrowserExecutor,
         tool_name: &str,
-        input: Option<&Value>,
+        input: Option<&serde_json::Value>,
     ) -> LLMResult<String> {
         use super::provider::ToolCall;
 
