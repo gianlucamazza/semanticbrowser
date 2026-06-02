@@ -26,21 +26,27 @@ oxigraph = "0.4"
 tract-core = "0.21"
 tract-onnx = { version = "0.21", optional = true }
 tokenizers = { version = "0.20", optional = true }
-tokio = { version = "1", features = ["full"] }
+# Only the tokio features actually used (was "full"): trims build time / surface.
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "macros",
+  "io-util",
+  "io-std",
+  "net",
+  "process",
+  "sync",
+  "time",
+] }
 axum = { version = "0.7", features = ["macros"] }
 pyo3 = { version = "0.27", optional = true }
 # TODO: Add pyo3-async-runtimes when version 0.27 is released
 # pyo3-async-runtimes = { version = "0.27", optional = true, features = ["tokio"] }
-rustls = "0.21"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
-sled = "0.34"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 base64 = "0.22"
 regex = "1.0"
-tower = "0.5"
-tower-http = { version = "0.6", features = ["trace", "cors"] }
 reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
 jsonwebtoken = "9.3"
 thiserror = "1.0"
@@ -50,12 +56,17 @@ async-trait = "0.1"
 # Browser automation (2025 best practice: chromiumoxide for headless browsing)
 chromiumoxide = { version = "0.7", optional = true }
 futures = "0.3"
-futures-util = "0.3"  # For stream utilities (bytes_stream, StreamExt)
+futures-util = "0.3"                                 # For stream utilities (bytes_stream, StreamExt)
 # Redis for token revocation (optional feature)
-redis = { version = "0.27", optional = true, features = ["tokio-comp", "connection-manager"] }
+redis = { version = "0.27", optional = true, features = [
+  "tokio-comp",
+  "connection-manager",
+] }
 # Observability (2025 best practice: OpenTelemetry + Prometheus)
 opentelemetry = { version = "0.27", optional = true }
-opentelemetry_sdk = { version = "0.27", optional = true, features = ["rt-tokio"] }
+opentelemetry_sdk = { version = "0.27", optional = true, features = [
+  "rt-tokio",
+] }
 opentelemetry-otlp = { version = "0.27", optional = true }
 tracing-opentelemetry = { version = "0.28", optional = true }
 prometheus = { version = "0.13", optional = true }
@@ -71,12 +82,25 @@ test-case = "3.3"
 
 [features]
 default = []
-pyo3-integration = ["pyo3"]  # TODO: Add pyo3-async-runtimes when 0.27 is released
+pyo3-integration = [
+  "pyo3",
+] # TODO: Add pyo3-async-runtimes when 0.27 is released
 onnx-integration = ["tract-onnx", "tokenizers"]
-seccomp = ["seccompiler"]  # Enable seccomp sandboxing on Linux
-telemetry = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp", "tracing-opentelemetry"]  # OpenTelemetry observability
-observability = ["prometheus"]  # Prometheus metrics
-browser-automation = ["chromiumoxide"]  # Headless browser automation with Chromium
-redis-integration = ["redis"]  # Redis for token revocation and caching
-llm-openai = []  # OpenAI LLM provider integration
-llm-anthropic = []  # Anthropic Claude LLM provider integration
+seccomp = ["seccompiler"] # Enable seccomp sandboxing on Linux
+telemetry = [
+  "opentelemetry",
+  "opentelemetry_sdk",
+  "opentelemetry-otlp",
+  "tracing-opentelemetry",
+] # OpenTelemetry observability
+observability = ["prometheus"] # Prometheus metrics
+browser-automation = [
+  "chromiumoxide",
+] # Headless browser automation with Chromium
+redis-integration = ["redis"] # Redis for token revocation and caching
+# NOTE: llm-openai / llm-anthropic are code-only gates. They compile the matching
+# provider module (src/llm/{openai,anthropic}.rs), which talks to the HTTP API via
+# `reqwest` directly — there is no separate SDK crate to enable. Ollama is always built.
+llm-openai = [] # OpenAI LLM provider integration (gates src/llm/openai.rs)
+llm-anthropic = [
+] # Anthropic Claude LLM provider integration (gates src/llm/anthropic.rs)
