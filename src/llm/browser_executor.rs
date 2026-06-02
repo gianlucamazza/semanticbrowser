@@ -272,7 +272,7 @@ impl BrowserExecutor {
         for (form_idx, form) in target_forms.iter().enumerate() {
             for field in &form.fields {
                 result.push(serde_json::json!({
-                    "form_index": if form_index.is_some() { form_index.unwrap() } else { form_idx },
+                    "form_index": form_index.unwrap_or(form_idx),
                     "selector": field.selector,
                     "field_type": format!("{:?}", field.field_type),
                     "label": field.label,

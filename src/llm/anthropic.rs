@@ -386,7 +386,11 @@ impl LLMProvider for AnthropicProvider {
                         }
                     },
                     Err(e) => {
-                        tracing::debug!("Failed to parse Anthropic SSE event: {}. Data: {}", e, data);
+                        tracing::debug!(
+                            "Failed to parse Anthropic SSE event: {}. Data: {}",
+                            e,
+                            data
+                        );
                         crate::llm::http::SseAction::Skip
                     }
                 }

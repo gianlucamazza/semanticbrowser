@@ -91,9 +91,12 @@ fn bench_jwt_validation(c: &mut Criterion) {
         semantic_browser::auth::Claims::new("test_user".to_string(), Some("admin".to_string()));
     let token = semantic_browser::auth::generate_token(&claims).unwrap();
 
+    // validate_token() is a sync wrapper that requires a running Tokio runtime
+    // (Handle::current()). Drive the async validator on an explicit runtime instead.
+    let rt = Runtime::new().unwrap();
     c.bench_function("jwt_validation", |b| {
         b.iter(|| {
-            let _ = semantic_browser::auth::validate_token(black_box(&token));
+            let _ = rt.block_on(semantic_browser::auth::validate_token_async(black_box(&token)));
         })
     });
 }

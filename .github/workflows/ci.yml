@@ -37,7 +37,7 @@ jobs:
       run: cargo test --lib ${{ matrix.features }}
 
     - name: Run integration tests
-      run: cargo test --test integration_tests ${{ matrix.features }}
+      run: cargo test --test integration_test ${{ matrix.features }}
 
   lint:
     name: Lint
