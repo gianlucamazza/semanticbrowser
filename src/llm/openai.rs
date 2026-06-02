@@ -3,7 +3,6 @@ use crate::llm::provider::{
     MessageContent, Role, TokenUsage, ToolCall,
 };
 use async_trait::async_trait;
-use futures_util::stream::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -208,6 +207,107 @@ impl OpenAIProvider {
             }
         }
     }
+
+    /// Build a chat completion request (tools optional, streaming flag explicit).
+    fn build_request(
+        &self,
+        messages: Vec<Message>,
+        config: &LLMConfig,
+        tools: Option<Vec<OpenAITool>>,
+        stream: bool,
+    ) -> OpenAIRequest {
+        OpenAIRequest {
+            model: config.model.clone(),
+            messages: messages.into_iter().map(|msg| self.convert_message(msg)).collect(),
+            max_tokens: config.max_tokens,
+            temperature: Some(config.temperature),
+            tools,
+            stream,
+        }
+    }
+
+    /// POST a request to `/chat/completions` and deserialize the (non-streaming) response.
+    async fn post_chat(&self, request: &OpenAIRequest) -> LLMResult<OpenAIResponse> {
+        let response = self
+            .client
+            .post(format!("{}/chat/completions", self.base_url))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(request)
+            .send()
+            .await
+            .map_err(LLMError::Network)?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(LLMError::Api(format!("OpenAI API error: {}", error_text)));
+        }
+
+        response
+            .json()
+            .await
+            .map_err(|e| LLMError::InvalidResponse(format!("Failed to parse response: {}", e)))
+    }
+
+    /// Map the first choice of an OpenAI response into our generic `LLMResponse`.
+    fn into_llm_response(response: OpenAIResponse) -> LLMResult<LLMResponse> {
+        let Some(choice) = response.choices.first() else {
+            return Err(LLMError::Api("No response choices".to_string()));
+        };
+
+        let usage = response
+            .usage
+            .as_ref()
+            .map(|u| TokenUsage {
+                prompt_tokens: u.prompt_tokens,
+                completion_tokens: u.completion_tokens,
+                total_tokens: u.total_tokens,
+            })
+            .unwrap_or_default();
+
+        Ok(LLMResponse {
+            content: choice.message.extract_content(),
+            tool_calls: choice.message.extract_tool_calls(),
+            finish_reason: choice.finish_reason.clone().unwrap_or_else(|| "stop".to_string()),
+            usage,
+        })
+    }
+}
+
+impl OpenAIMessage {
+    /// Extract textual content (joins text blocks for vision messages).
+    fn extract_content(&self) -> String {
+        match self {
+            OpenAIMessage::Text { content, .. } => content.clone(),
+            OpenAIMessage::Vision { content: blocks, .. } => blocks
+                .iter()
+                .filter_map(|block| match block {
+                    OpenAIContentBlock::Text { text, .. } => Some(text.clone()),
+                    OpenAIContentBlock::Image { .. } => None,
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+        }
+    }
+
+    /// Map any tool calls on this message to our generic `ToolCall` type.
+    fn extract_tool_calls(&self) -> Option<Vec<ToolCall>> {
+        let (OpenAIMessage::Text { tool_calls, .. } | OpenAIMessage::Vision { tool_calls, .. }) =
+            self;
+        tool_calls.as_ref().map(|calls| {
+            calls
+                .iter()
+                .map(|tc| ToolCall {
+                    id: tc.id.clone(),
+                    tool_type: tc.r#type.clone(),
+                    function: crate::llm::provider::FunctionCall {
+                        name: tc.function.name.clone(),
+                        arguments: tc.function.arguments.clone(),
+                    },
+                })
+                .collect()
+        })
+    }
 }
 
 #[async_trait]
@@ -217,74 +317,9 @@ impl LLMProvider for OpenAIProvider {
         messages: Vec<Message>,
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse> {
-        let openai_messages =
-            messages.into_iter().map(|msg| self.convert_message(msg)).collect::<Vec<_>>();
-
-        let request = OpenAIRequest {
-            model: config.model.clone(),
-            messages: openai_messages,
-            max_tokens: config.max_tokens,
-            temperature: Some(config.temperature),
-            tools: None,
-            stream: false,
-        };
-
-        let response = self
-            .client
-            .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(LLMError::Network)?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(LLMError::Api(format!("OpenAI API error: {}", error_text)));
-        }
-
-        let openai_response: OpenAIResponse = response
-            .json()
-            .await
-            .map_err(|e| LLMError::InvalidResponse(format!("Failed to parse response: {}", e)))?;
-
-        if let Some(choice) = openai_response.choices.first() {
-            let usage = openai_response
-                .usage
-                .as_ref()
-                .map(|u| TokenUsage {
-                    prompt_tokens: u.prompt_tokens,
-                    completion_tokens: u.completion_tokens,
-                    total_tokens: u.total_tokens,
-                })
-                .unwrap_or_default();
-
-            // Extract content from OpenAI message (could be text or vision format)
-            let content = match &choice.message {
-                OpenAIMessage::Text { content, .. } => content.clone(),
-                OpenAIMessage::Vision { content: blocks, .. } => {
-                    // For vision responses, extract text content
-                    blocks
-                        .iter()
-                        .filter_map(|block| match block {
-                            OpenAIContentBlock::Text { text, .. } => Some(text.clone()),
-                            OpenAIContentBlock::Image { .. } => None,
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                }
-            };
-
-            Ok(LLMResponse {
-                content,
-                tool_calls: None,
-                finish_reason: choice.finish_reason.clone().unwrap_or("stop".to_string()),
-                usage,
-            })
-        } else {
-            Err(LLMError::Api("No response choices".to_string()))
-        }
+        let request = self.build_request(messages, config, None, false);
+        let response = self.post_chat(&request).await?;
+        Self::into_llm_response(response)
     }
 
     async fn chat_completion_with_tools(
@@ -293,110 +328,10 @@ impl LLMProvider for OpenAIProvider {
         tools: Vec<serde_json::Value>,
         config: &LLMConfig,
     ) -> LLMResult<LLMResponse> {
-        let openai_messages =
-            messages.into_iter().map(|msg| self.convert_message(msg)).collect::<Vec<_>>();
-
         let tools = self.convert_tools(&tools)?;
-
-        let request = OpenAIRequest {
-            model: config.model.clone(),
-            messages: openai_messages,
-            max_tokens: config.max_tokens,
-            temperature: Some(config.temperature),
-            tools: Some(tools),
-            stream: false,
-        };
-
-        let response = self
-            .client
-            .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(LLMError::Network)?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(LLMError::Api(format!("OpenAI API error: {}", error_text)));
-        }
-
-        let openai_response: OpenAIResponse = response
-            .json()
-            .await
-            .map_err(|e| LLMError::InvalidResponse(format!("Failed to parse response: {}", e)))?;
-
-        if let Some(choice) = openai_response.choices.first() {
-            let usage = openai_response
-                .usage
-                .as_ref()
-                .map(|u| TokenUsage {
-                    prompt_tokens: u.prompt_tokens,
-                    completion_tokens: u.completion_tokens,
-                    total_tokens: u.total_tokens,
-                })
-                .unwrap_or_default();
-
-            // Handle tool calls
-            let tool_calls = match &choice.message {
-                OpenAIMessage::Text { tool_calls, .. } => {
-                    tool_calls.as_ref().map(|openai_tool_calls| {
-                        openai_tool_calls
-                            .iter()
-                            .map(|tc| ToolCall {
-                                id: tc.id.clone(),
-                                tool_type: tc.r#type.clone(),
-                                function: crate::llm::provider::FunctionCall {
-                                    name: tc.function.name.clone(),
-                                    arguments: tc.function.arguments.clone(),
-                                },
-                            })
-                            .collect()
-                    })
-                }
-                OpenAIMessage::Vision { tool_calls, .. } => {
-                    tool_calls.as_ref().map(|openai_tool_calls| {
-                        openai_tool_calls
-                            .iter()
-                            .map(|tc| ToolCall {
-                                id: tc.id.clone(),
-                                tool_type: tc.r#type.clone(),
-                                function: crate::llm::provider::FunctionCall {
-                                    name: tc.function.name.clone(),
-                                    arguments: tc.function.arguments.clone(),
-                                },
-                            })
-                            .collect()
-                    })
-                }
-            };
-
-            // Extract content from OpenAI message
-            let content = match &choice.message {
-                OpenAIMessage::Text { content, .. } => content.clone(),
-                OpenAIMessage::Vision { content: blocks, .. } => {
-                    // For vision responses, extract text content
-                    blocks
-                        .iter()
-                        .filter_map(|block| match block {
-                            OpenAIContentBlock::Text { text, .. } => Some(text.clone()),
-                            OpenAIContentBlock::Image { .. } => None,
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                }
-            };
-
-            Ok(LLMResponse {
-                content,
-                tool_calls,
-                finish_reason: choice.finish_reason.clone().unwrap_or("stop".to_string()),
-                usage,
-            })
-        } else {
-            Err(LLMError::Api("No response choices".to_string()))
-        }
+        let request = self.build_request(messages, config, Some(tools), false);
+        let response = self.post_chat(&request).await?;
+        Self::into_llm_response(response)
     }
 
     async fn stream_chat_completion(
@@ -444,61 +379,24 @@ impl LLMProvider for OpenAIProvider {
                 return;
             }
 
-            let mut byte_stream = response.bytes_stream();
-            let mut buffer = String::new();
-
-            while let Some(chunk_result) = byte_stream.next().await {
-                let chunk = match chunk_result {
-                    Ok(bytes) => bytes,
+            crate::llm::http::pump_sse(response, tx, |data| {
+                match serde_json::from_str::<OpenAIStreamEvent>(data) {
+                    Ok(event) => {
+                        let tokens = event
+                            .choices
+                            .into_iter()
+                            .flatten()
+                            .filter_map(|choice| choice.delta.content)
+                            .collect();
+                        crate::llm::http::SseAction::Emit(tokens)
+                    }
                     Err(e) => {
-                        tracing::error!("Failed to read response chunk: {}", e);
-                        return;
+                        tracing::debug!("Failed to parse SSE event: {}. Data: {}", e, data);
+                        crate::llm::http::SseAction::Skip
                     }
-                };
-
-                if let Ok(text) = String::from_utf8(chunk.to_vec()) {
-                    buffer.push_str(&text);
-
-                    while let Some(newline_pos) = buffer.find('\n') {
-                        let line = buffer[..newline_pos].trim().to_string();
-                        buffer = buffer[newline_pos + 1..].to_string();
-
-                        if line.is_empty() {
-                            continue;
-                        }
-
-                        if line == "[DONE]" {
-                            return;
-                        }
-
-                        if let Some(data) = line.strip_prefix("data: ") {
-                            match serde_json::from_str::<OpenAIStreamEvent>(data) {
-                                Ok(stream_event) => {
-                                    if let Some(choices) = stream_event.choices {
-                                        for choice in choices {
-                                            if let Some(content) = choice.delta.content {
-                                                if let Err(e) = tx.send(content).await {
-                                                    tracing::warn!("Failed to send token: {}", e);
-                                                    return;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    tracing::debug!(
-                                        "Failed to parse SSE event: {}. Data: {}",
-                                        e,
-                                        data
-                                    );
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    tracing::warn!("Failed to convert response chunk to UTF-8");
                 }
-            }
+            })
+            .await;
         });
 
         Ok(rx)
