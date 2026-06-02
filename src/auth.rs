@@ -151,12 +151,10 @@ impl JwtConfig {
                 .unwrap_or(false);
 
             if !insecure_optin {
-                return Err(
-                    "JWT_SECRET not set. Set JWT_SECRET (>=32 chars), or set \
+                return Err("JWT_SECRET not set. Set JWT_SECRET (>=32 chars), or set \
                      ALLOW_INSECURE_NO_AUTH=true to explicitly run with authentication disabled \
                      (development only)."
-                        .to_string(),
-                );
+                    .to_string());
             }
 
             tracing::warn!(

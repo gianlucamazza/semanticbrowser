@@ -209,6 +209,9 @@ where
         let mut rules: BTreeMap<i64, Vec<SeccompRule>> = BTreeMap::new();
         for &syscall in &allowed_syscalls {
             let rule = SeccompRule::new(vec![]).expect("empty seccomp rule is always valid");
+            // `libc::SYS_*` is `c_long`, which is i64 on 64-bit targets (cast is a no-op there)
+            // but i32 on 32-bit targets, where the cast is required.
+            #[allow(clippy::unnecessary_cast)]
             rules.insert(syscall as i64, vec![rule]);
         }
 
