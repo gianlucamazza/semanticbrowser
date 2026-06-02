@@ -89,7 +89,8 @@ pub fn parse_html(html: &str) -> Result<SemanticData, Box<dyn std::error::Error 
 fn extract_json_ld(
     document: &Html,
 ) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error + Send + Sync>> {
-    let selector = Selector::parse("script[type=\"application/ld+json\"]")
+    // `i` flag: match the type attribute value case-insensitively (e.g. APPLICATION/LD+JSON).
+    let selector = Selector::parse("script[type=\"application/ld+json\" i]")
         .map_err(|e| Box::<dyn std::error::Error + Send + Sync>::from(e.to_string()))?;
     let mut json_ld = Vec::new();
 

@@ -102,8 +102,12 @@ impl TokenRevocationStore {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let key = format!("revoked_token:{}", token);
 
-        // Store token with expiration (same as JWT expiration)
-        let _: () = conn.set_ex(key, "revoked", expiration as u64).await?;
+        // `expiration` is a Unix timestamp (the JWT `exp` claim), but Redis SET EX
+        // expects a TTL in seconds. Convert to a remaining-lifetime TTL so the key
+        // self-expires when the token would have expired (avoids an unbounded leak).
+        // If already expired, use a 1s TTL so the revocation is still briefly recorded.
+        let ttl = (expiration - Utc::now().timestamp()).max(1) as u64;
+        let _: () = conn.set_ex(key, "revoked", ttl).await?;
         Ok(())
     }
 
@@ -138,7 +142,27 @@ impl JwtConfig {
         };
 
         if secret.is_none() {
-            tracing::warn!("JWT_SECRET not set - JWT authentication disabled");
+            // Fail closed by default: a missing secret must NOT silently open every
+            // endpoint. Disabling auth requires an explicit insecure opt-in so that a
+            // production deploy without JWT_SECRET refuses to start instead.
+            #[allow(clippy::disallowed_methods)]
+            let insecure_optin = std::env::var("ALLOW_INSECURE_NO_AUTH")
+                .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+                .unwrap_or(false);
+
+            if !insecure_optin {
+                return Err(
+                    "JWT_SECRET not set. Set JWT_SECRET (>=32 chars), or set \
+                     ALLOW_INSECURE_NO_AUTH=true to explicitly run with authentication disabled \
+                     (development only)."
+                        .to_string(),
+                );
+            }
+
+            tracing::warn!(
+                "SECURITY: JWT authentication is DISABLED (ALLOW_INSECURE_NO_AUTH set). All \
+                 endpoints are open and RBAC is bypassed. Do NOT use this in production."
+            );
             return JWT_STATE
                 .set(AuthState::Disabled)
                 .map_err(|_| "JWT config already initialized".to_string());
