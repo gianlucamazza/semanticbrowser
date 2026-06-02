@@ -6,9 +6,17 @@
 // - Fallback to regex for development/testing
 // - Support for common NER models (BERT, DistilBERT, etc.)
 
+use lazy_static::lazy_static;
 use regex::Regex;
 use scraper::{Html, Selector};
 use std::sync::OnceLock;
+
+lazy_static! {
+    /// Capitalized words/phrases used by the regex fallback entity extractor.
+    /// Compiled once instead of on every `extract_entities_regex` call.
+    static ref ENTITY_RE: Regex =
+        Regex::new(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b").expect("ENTITY_RE is a valid regex");
+}
 
 #[cfg(feature = "onnx-integration")]
 use std::fs;
@@ -371,6 +379,11 @@ fn select_label(logits: &[f32]) -> Result<(usize, f32), Box<dyn std::error::Erro
     let confidence = if exp_sum.is_finite() && exp_sum > 0.0 {
         ((logits[max_idx] - max_val).exp() / exp_sum).clamp(0.0, 1.0)
     } else {
+        // Non-finite softmax denominator (NaN/Inf logits): can't compute a meaningful
+        // confidence. Surface it instead of silently returning 0.0.
+        tracing::warn!(
+            "Softmax denominator not finite (exp_sum={exp_sum}); defaulting confidence to 0.0"
+        );
         0.0
     };
 
@@ -589,7 +602,7 @@ pub fn annotate_html(html: &str) -> Result<Vec<String>, Box<dyn std::error::Erro
     let document = Html::parse_document(html);
 
     // Extract text content
-    let body_selector = Selector::parse("body").unwrap();
+    let body_selector = Selector::parse("body").expect("\"body\" is a valid CSS selector");
     let body_text = document
         .select(&body_selector)
         .next()
@@ -614,8 +627,8 @@ fn get_entities(text: &str) -> Vec<Entity> {
 
 /// Regex-based entity extraction (fallback)
 fn extract_entities_regex(text: &str) -> Vec<Entity> {
-    let re = Regex::new(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b").unwrap(); // Capitalized words/phrases
-    re.find_iter(text)
+    ENTITY_RE
+        .find_iter(text)
         .map(|m| Entity {
             text: m.as_str().to_string(),
             entity_type: "UNKNOWN".to_string(),

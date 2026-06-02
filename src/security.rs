@@ -170,7 +170,7 @@ where
     #[cfg(all(target_os = "linux", feature = "seccomp"))]
     {
         use seccompiler::{apply_filter, BpfProgram, SeccompAction, SeccompFilter, SeccompRule};
-        use std::collections::HashMap;
+        use std::collections::BTreeMap;
 
         // Define allowed syscalls for HTML parsing
         // Best practice: whitelist approach - only allow what's needed
@@ -203,10 +203,13 @@ where
             libc::SYS_sched_getaffinity,
         ];
 
-        // Create filter rules
-        let mut rules = HashMap::new();
+        // Create filter rules. seccompiler 0.5 wants a BTreeMap and `SeccompRule::new`
+        // now returns a Result; an empty-condition rule (match-all for the syscall) is
+        // always valid, so `expect` here only fires on a seccompiler bug.
+        let mut rules: BTreeMap<i64, Vec<SeccompRule>> = BTreeMap::new();
         for &syscall in &allowed_syscalls {
-            rules.insert(syscall as i64, vec![SeccompRule::new(vec![], SeccompAction::Allow)]);
+            let rule = SeccompRule::new(vec![]).expect("empty seccomp rule is always valid");
+            rules.insert(syscall as i64, vec![rule]);
         }
 
         // Create the seccomp filter
@@ -214,7 +217,7 @@ where
             rules,
             SeccompAction::Trap, // Trap on disallowed syscalls
             SeccompAction::Allow,
-            std::arch::consts::ARCH.try_into().unwrap(),
+            std::env::consts::ARCH.try_into().unwrap(),
         )
         .expect("Failed to create seccomp filter");
 

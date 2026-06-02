@@ -16,7 +16,10 @@ pub struct OllamaConfig {
 
 impl Default for OllamaConfig {
     fn default() -> Self {
-        Self { base_url: "http://localhost:11434".to_string(), timeout: Duration::from_secs(120) }
+        Self {
+            base_url: crate::config::OLLAMA_DEFAULT_BASE_URL.to_string(),
+            timeout: Duration::from_secs(crate::config::OLLAMA_DEFAULT_TIMEOUT_SECS),
+        }
     }
 }
 

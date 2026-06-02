@@ -181,7 +181,7 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
             .with_state(state)
     };
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], crate::config::DEFAULT_PORT));
     let listener = TcpListener::bind(addr).await?;
     tracing::info!("Server running on http://{}", addr);
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
