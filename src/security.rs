@@ -208,11 +208,13 @@ where
         // always valid, so `expect` here only fires on a seccompiler bug.
         let mut rules: BTreeMap<i64, Vec<SeccompRule>> = BTreeMap::new();
         for &syscall in &allowed_syscalls {
-            let rule = SeccompRule::new(vec![]).expect("empty seccomp rule is always valid");
-            // `libc::SYS_*` is `c_long`, which is i64 on 64-bit targets (cast is a no-op there)
-            // but i32 on 32-bit targets, where the cast is required.
+            // An empty rule vec means "match this syscall unconditionally"; the filter's
+            // match action (Allow, below) then applies. A SeccompRule must carry at least
+            // one condition, so we cannot build one for an unconditional allow.
+            // `libc::SYS_*` is `c_long`: i64 on 64-bit targets (cast is a no-op there),
+            // i32 on 32-bit targets where the cast is required.
             #[allow(clippy::unnecessary_cast)]
-            rules.insert(syscall as i64, vec![rule]);
+            rules.insert(syscall as i64, Vec::new());
         }
 
         // Create the seccomp filter
@@ -256,7 +258,15 @@ where
 mod tests {
     use super::*;
 
+    // With the `seccomp` feature, sandbox_parsing applies a restrictive, thread-wide,
+    // permanent seccomp filter. Running that in-process kills the test harness with
+    // SIGSYS (it needs syscalls outside the allow-list to report results), so the real
+    // sandbox path can't be unit-tested here — exercise only the no-op wrapper path.
     #[test]
+    #[cfg_attr(
+        feature = "seccomp",
+        ignore = "applies a process-wide seccomp filter; would SIGSYS the test runner"
+    )]
     fn test_sandbox_wrapper() {
         let result = sandbox_parsing(|| {
             // This should execute normally
