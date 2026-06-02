@@ -1,0 +1,4 @@
+# Documentation build dependencies (mkdocs site).
+# mkdocs-material pulls in mkdocs + pymdown-extensions and registers the
+# `material.extensions.emoji` module referenced by mkdocs.yml.
+mkdocs-material>=9.5,<10
