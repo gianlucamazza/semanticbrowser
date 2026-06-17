@@ -84,8 +84,8 @@ pub fn parse_html(html: &str) -> Result<SemanticData, Box<dyn std::error::Error 
 /// A vector of parsed JSON values, or an error if parsing fails.
 ///
 /// # Note
-/// Invalid JSON in script tags will cause the entire extraction to fail.
-/// In production, consider more robust error handling for individual scripts.
+/// Individual script tags containing invalid JSON are skipped (and logged via
+/// `crate::security::log_action`); the remaining valid scripts are still extracted.
 fn extract_json_ld(
     document: &Html,
 ) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error + Send + Sync>> {
@@ -96,8 +96,15 @@ fn extract_json_ld(
 
     for element in document.select(&selector) {
         if let Some(text) = element.text().next() {
-            let value: serde_json::Value = serde_json::from_str(text)?;
-            json_ld.push(value);
+            // Skip (and log) individual malformed scripts instead of aborting the
+            // whole parse: one bad JSON-LD block must not discard valid ones.
+            match serde_json::from_str(text) {
+                Ok(value) => json_ld.push(value),
+                Err(e) => crate::security::log_action(
+                    "extract_json_ld",
+                    &format!("skipping malformed JSON-LD script: {e}"),
+                ),
+            }
         }
     }
 
@@ -172,5 +179,22 @@ mod tests {
         let result = parse_html(html).unwrap();
         assert_eq!(result.title, Some("Test Page".to_string()));
         assert_eq!(result.json_ld.len(), 1);
+    }
+
+    #[test]
+    fn test_extract_json_ld_skips_malformed_script() {
+        let html = r#"
+        <html>
+        <head><title>Mixed Page</title></head>
+        <body>
+        <script type="application/ld+json">{"@type": "Person", "name": "Valid"}</script>
+        <script type="application/ld+json">{"@type": "Person", "name": }</script>
+        </body>
+        </html>
+        "#;
+        // Malformed script is skipped, valid one extracted; no error raised.
+        let result = parse_html(html).unwrap();
+        assert_eq!(result.json_ld.len(), 1);
+        assert_eq!(result.json_ld[0]["name"], "Valid");
     }
 }
