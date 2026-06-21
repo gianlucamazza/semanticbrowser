@@ -77,7 +77,7 @@ jobs:
       run: cargo build --release --verbose
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: semantic_browser_agent
         path: target/release/semantic_browser_agent
